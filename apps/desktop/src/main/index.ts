@@ -100,12 +100,21 @@ function rendererIndexPath(): string {
 /** アプリ自身の画面の URL か（IPC の呼び出し元の確認と、画面遷移の制限に使う） */
 function isAppUrl(url: string): boolean {
 	const devServerUrl = devRendererUrl();
-	if (devServerUrl) return url.startsWith(new URL(devServerUrl).origin);
+	if (devServerUrl) {
+		try {
+			return new URL(url).origin === new URL(devServerUrl).origin;
+		} catch {
+			return false;
+		}
+	}
 	return url.startsWith(pathToFileURL(rendererIndexPath()).href);
 }
 
 // 同じ DB を 2 つのプロセスで開かない（マイグレーションの二重適用などを防ぐ）
 if (!app.requestSingleInstanceLock()) {
+	console.info(
+		'[app] すでに起動しているため終了します（同じデータの場所を使うアプリが動いています）',
+	);
 	app.quit();
 } else {
 	app.on('second-instance', () => {
