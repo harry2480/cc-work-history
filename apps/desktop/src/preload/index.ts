@@ -4,6 +4,8 @@ import { type DesktopApi, IPC_CHANNELS, type SessionsChangedPayload } from '../s
 // チャンネルを呼ぶだけ。ロジックは持たない
 const api: DesktopApi = {
 	ping: () => ipcRenderer.invoke(IPC_CHANNELS.ping),
+	getTimeline: (request) => ipcRenderer.invoke(IPC_CHANNELS.getTimeline, request),
+	getSessionDetail: (request) => ipcRenderer.invoke(IPC_CHANNELS.getSessionDetail, request),
 	onSessionsChanged: (listener) => {
 		const handler = (_event: IpcRendererEvent, payload: SessionsChangedPayload) =>
 			listener(payload);
