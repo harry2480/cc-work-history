@@ -1,6 +1,10 @@
 import { DEFAULT_IDLE_THRESHOLD_MS, type SessionStatus } from '../../domain/models/session.model';
 import type { SessionAnnotationRepository } from '../../domain/repositories/session-annotation.repository';
-import type { Period, SessionRepository } from '../../domain/repositories/session.repository';
+import type {
+	Period,
+	SessionFilter,
+	SessionRepository,
+} from '../../domain/repositories/session.repository';
 
 export type TimelineActivity = {
 	startedAt: Date;
@@ -30,8 +34,8 @@ export class GetTimelineUseCase {
 		private readonly idleThresholdMs = DEFAULT_IDLE_THRESHOLD_MS,
 	) {}
 
-	execute(period: Period, now: Date): TimelineItem[] {
-		const found = this.sessionRepository.findByPeriod(period);
+	execute(period: Period, now: Date, filter: SessionFilter = {}): TimelineItem[] {
+		const found = this.sessionRepository.findByPeriod(period, filter);
 		const annotations = this.sessionAnnotationRepository.findBySessionIds(
 			found.map(({ session }) => session.id),
 		);

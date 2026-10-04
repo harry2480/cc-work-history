@@ -60,6 +60,13 @@ export class SqliteSessionAnnotationRepository implements SessionAnnotationRepos
 		})();
 	}
 
+	findAllTagNames(): string[] {
+		return this.db
+			.prepare<[], { name: string }>('SELECT name FROM tags ORDER BY name COLLATE NOCASE')
+			.all()
+			.map((row) => row.name);
+	}
+
 	private findBySessionIdsIncludingEmpty(
 		sessionIds: readonly string[],
 	): Map<string, SessionAnnotation> {

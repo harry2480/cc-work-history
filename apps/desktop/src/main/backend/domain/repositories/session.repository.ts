@@ -7,6 +7,15 @@ export type Period = {
 	to: Date;
 };
 
+/** 絞り込み条件。指定した条件はすべて満たすもの（AND）、各条件の中の候補はいずれか（OR） */
+export type SessionFilter = {
+	projectIds?: readonly string[];
+	/** いずれかのタグが付いている（大文字小文字は区別しない） */
+	tags?: readonly string[];
+	/** 概要に含まれる文字列 */
+	query?: string;
+};
+
 export type SessionWithProject = {
 	session: Session;
 	project: Project;
@@ -20,5 +29,5 @@ export interface SessionRepository {
 	 * 期間に重なる活動区間を 1 つ以上持つセッションを、プロジェクトと一緒に開始時刻順で返す。
 	 * セッションの活動区間はすべて含む（期間外のものも含む）
 	 */
-	findByPeriod(period: Period): SessionWithProject[];
+	findByPeriod(period: Period, filter?: SessionFilter): SessionWithProject[];
 }

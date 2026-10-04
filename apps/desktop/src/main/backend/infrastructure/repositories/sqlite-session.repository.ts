@@ -3,6 +3,7 @@ import { Activity } from '../../domain/models/activity.model';
 import { Session } from '../../domain/models/session.model';
 import type {
 	Period,
+	SessionFilter,
 	SessionRepository,
 	SessionWithProject,
 } from '../../domain/repositories/session.repository';
@@ -91,17 +92,42 @@ export class SqliteSessionRepository implements SessionRepository {
 		return this.toSessionWithProject(row, this.findActivityRows([row.id]));
 	}
 
-	findByPeriod(period: Period): SessionWithProject[] {
+	findByPeriod(period: Period, filter: SessionFilter = {}): SessionWithProject[] {
+		const conditions = [
+			`EXISTS (
+				SELECT 1 FROM activities a
+				WHERE a.session_id = s.id AND a.started_at < @to AND a.ended_at >= @from
+			)`,
+		];
+		const params: Record<string, string | number> = {
+			from: period.from.getTime(),
+			to: period.to.getTime(),
+		};
+		if (filter.projectIds && filter.projectIds.length > 0) {
+			conditions.push('s.project_id IN (SELECT value FROM json_each(@projectIds))');
+			params.projectIds = JSON.stringify(filter.projectIds);
+		}
+		if (filter.tags && filter.tags.length > 0) {
+			conditions.push(`EXISTS (
+				SELECT 1 FROM session_tags st JOIN tags t ON t.id = st.tag_id
+				WHERE st.session_id = s.id
+					AND lower(t.name) IN (SELECT lower(value) FROM json_each(@tags))
+			)`);
+			params.tags = JSON.stringify(filter.tags);
+		}
+		const query = filter.query?.trim();
+		if (query) {
+			conditions.push("s.summary LIKE @query ESCAPE '\\'");
+			params.query = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
+		}
+
 		const rows = this.db
-			.prepare<[number, number], SessionWithProjectRow>(
+			.prepare<[Record<string, string | number>], SessionWithProjectRow>(
 				`${SELECT_SESSION_WITH_PROJECT}
-				WHERE EXISTS (
-					SELECT 1 FROM activities a
-					WHERE a.session_id = s.id AND a.started_at < ? AND a.ended_at >= ?
-				)
+				WHERE ${conditions.join(' AND ')}
 				ORDER BY s.started_at, s.id`,
 			)
-			.all(period.to.getTime(), period.from.getTime());
+			.all(params);
 
 		const activityRows = this.findActivityRows(rows.map((row) => row.id));
 		return rows.map((row) => this.toSessionWithProject(row, activityRows));

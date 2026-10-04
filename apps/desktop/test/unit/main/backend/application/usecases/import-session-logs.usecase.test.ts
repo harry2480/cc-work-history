@@ -23,6 +23,9 @@ class InMemoryProjectRepository implements ProjectRepository {
 	findById(id: string) {
 		return this.projects.get(id) ?? null;
 	}
+	findAll() {
+		return [...this.projects.values()];
+	}
 }
 
 class InMemorySessionRepository implements SessionRepository {

@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils/cn';
 import { formatDay, formatWeekRange } from '@/lib/utils/format';
 import { useDisplaySettingsStore } from '@/stores/display-settings-store';
@@ -8,7 +9,14 @@ import { useMemo } from 'react';
 import { useTimeline } from '../api/use-timeline';
 import { colorGroupOf, legendOf } from '../utils/color-by';
 import { assignLanes, toBarSegments } from '../utils/layout';
-import { addWeeks, daysOfWeek, isSameDay, startOfWeek, weekPeriod } from '../utils/week';
+import {
+	addWeeks,
+	daysOfWeek,
+	isSameDay,
+	parseDateInput,
+	startOfWeek,
+	weekPeriod,
+} from '../utils/week';
 import { ColorBySwitch } from './color-by-switch';
 import { ColorLegend } from './color-legend';
 import { SessionBar } from './session-bar';
@@ -79,6 +87,15 @@ export function TimelineView() {
 				>
 					今週
 				</Button>
+				<Input
+					type="date"
+					aria-label="日付を指定して移動"
+					className="h-9 w-40"
+					onChange={(e) => {
+						const date = parseDateInput(e.target.value);
+						if (date) setWeekStart(startOfWeek(date));
+					}}
+				/>
 				<h2 className="ml-2 whitespace-nowrap text-lg font-bold">
 					{formatWeekRange(weekStart, weekPeriod(weekStart).to)}
 				</h2>
@@ -142,7 +159,7 @@ export function TimelineView() {
 			</div>
 
 			{data && data.sessions.length === 0 && !loading && (
-				<p className="text-sm text-muted-foreground">この週のセッションはありません。</p>
+				<p className="text-sm text-muted-foreground">この週に該当するセッションはありません。</p>
 			)}
 		</div>
 	);

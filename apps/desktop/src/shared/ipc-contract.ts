@@ -11,6 +11,8 @@ export const IPC_CHANNELS = {
 	getSessionDetail: 'sessions:get-detail',
 	/** renderer → main: セッションの概要とタグを手動で編集する */
 	updateSessionAnnotation: 'sessions:update-annotation',
+	/** renderer → main: 絞り込みの選択肢（プロジェクトとタグの一覧）を取得する */
+	getFilterOptions: 'filters:get-options',
 	/** main → renderer: 取り込みでセッションが追加・更新された */
 	sessionsChanged: 'sessions:changed',
 } as const;
@@ -42,6 +44,23 @@ export type ActivityDto = {
 export type GetTimelineRequest = {
 	from: IsoDateString;
 	to: IsoDateString;
+	filter?: SessionFilterDto;
+};
+
+/** 絞り込み条件。指定した条件はすべて満たすもの（AND）、各条件の中の候補はいずれか（OR） */
+export type SessionFilterDto = {
+	projectIds?: string[];
+	/** いずれかのタグが付いている（大文字小文字は区別しない） */
+	tags?: string[];
+	/** 概要に含まれる文字列 */
+	query?: string;
+};
+
+export type FilterOptionsDto = {
+	/** 最終活動日時の新しい順 */
+	projects: ProjectSummaryDto[];
+	/** 名前順 */
+	tags: string[];
 };
 
 export type TimelineSessionDto = {
@@ -117,6 +136,7 @@ export type DesktopApi = {
 	/** 見つからなければ null */
 	getSessionDetail(request: GetSessionDetailRequest): Promise<SessionDetailDto | null>;
 	updateSessionAnnotation(request: UpdateSessionAnnotationRequest): Promise<void>;
+	getFilterOptions(): Promise<FilterOptionsDto>;
 	/** セッションの変更を購読する。戻り値の関数で購読を解除する */
 	onSessionsChanged(listener: (payload: SessionsChangedPayload) => void): () => void;
 };

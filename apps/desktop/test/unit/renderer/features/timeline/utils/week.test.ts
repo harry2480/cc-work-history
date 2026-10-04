@@ -3,6 +3,7 @@ import {
 	daysOfWeek,
 	isSameDay,
 	overlaps,
+	parseDateInput,
 	startOfWeek,
 	weekPeriod,
 } from '@/features/timeline/utils/week';
@@ -55,5 +56,13 @@ describe('overlaps', () => {
 		expect(overlaps(period, { from: local(2026, 9, 27), to: local(2026, 9, 28) })).toBe(true);
 		expect(overlaps(period, { from: local(2026, 10, 5), to: local(2026, 10, 6) })).toBe(false);
 		expect(overlaps(period, { from: local(2026, 9, 20), to: local(2026, 9, 21) })).toBe(false);
+	});
+});
+
+describe('parseDateInput', () => {
+	it('YYYY-MM-DD をローカル時刻の 0:00 にし、不正な値は null', () => {
+		expect(parseDateInput('2026-10-01')).toEqual(local(2026, 10, 1));
+		expect(parseDateInput('2026-02-30')).toBeNull();
+		expect(parseDateInput('')).toBeNull();
 	});
 });

@@ -44,6 +44,7 @@ beforeEach(() => {
 		getTimeline: vi.fn(),
 		updateSessionAnnotation: vi.fn(async () => {}),
 		getSessionDetail,
+		getFilterOptions: vi.fn(async () => ({ projects: [], tags: [] })),
 		onSessionsChanged: (listener) => {
 			notifyChange = listener;
 			return () => {};

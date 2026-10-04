@@ -1,4 +1,10 @@
-import type { ActivityDto, SessionDetailDto, TimelineDto } from '../../../../shared/ipc-contract';
+import type {
+	ActivityDto,
+	FilterOptionsDto,
+	SessionDetailDto,
+	TimelineDto,
+} from '../../../../shared/ipc-contract';
+import type { GetFilterOptionsUseCase } from '../../application/usecases/get-filter-options.usecase';
 import type { GetSessionDetailUseCase } from '../../application/usecases/get-session-detail.usecase';
 import type {
 	GetTimelineUseCase,
@@ -8,6 +14,8 @@ import type {
 /** タイムラインで一度に取得できる期間の上限 */
 const MAX_PERIOD_MS = 31 * 24 * 60 * 60 * 1000;
 const MAX_ID_LENGTH = 200;
+const MAX_FILTER_VALUES = 100;
+const MAX_FILTER_VALUE_LENGTH = 200;
 
 /** renderer から受け取った値が不正なときのエラー */
 export class InvalidIpcRequestError extends Error {
@@ -20,11 +28,11 @@ export function loadTimeline(
 	request: unknown,
 	now: Date,
 ): TimelineDto {
-	const { from, to } = parseTimelineRequest(request);
+	const { from, to, filter } = parseTimelineRequest(request);
 	return {
 		from: from.toISOString(),
 		to: to.toISOString(),
-		sessions: useCase.execute({ from, to }, now).map((item) => ({
+		sessions: useCase.execute({ from, to }, now, filter).map((item) => ({
 			id: item.id,
 			project: item.project,
 			startedAt: item.startedAt.toISOString(),
@@ -64,7 +72,14 @@ function toActivityDto(activity: TimelineActivity): ActivityDto {
 	};
 }
 
-function parseTimelineRequest(request: unknown): { from: Date; to: Date } {
+/** 絞り込みの選択肢を取得する */
+export function loadFilterOptions(useCase: GetFilterOptionsUseCase): FilterOptionsDto {
+	return useCase.execute();
+}
+
+type TimelineFilter = { projectIds?: string[]; tags?: string[]; query?: string };
+
+function parseTimelineRequest(request: unknown): { from: Date; to: Date; filter: TimelineFilter } {
 	if (!isObject(request)) throw new InvalidIpcRequestError('期間を指定してください');
 	const from = parseDate(request.from, 'from');
 	const to = parseDate(request.to, 'to');
@@ -72,7 +87,34 @@ function parseTimelineRequest(request: unknown): { from: Date; to: Date } {
 	if (to.getTime() - from.getTime() > MAX_PERIOD_MS) {
 		throw new InvalidIpcRequestError('期間は 31 日以内にしてください');
 	}
-	return { from, to };
+	return { from, to, filter: parseFilter(request.filter) };
+}
+
+function parseFilter(value: unknown): TimelineFilter {
+	if (value === undefined) return {};
+	if (!isObject(value)) throw new InvalidIpcRequestError('絞り込み条件が不正です');
+	const filter: TimelineFilter = {};
+	if (value.projectIds !== undefined)
+		filter.projectIds = parseStringList(value.projectIds, 'projectIds');
+	if (value.tags !== undefined) filter.tags = parseStringList(value.tags, 'tags');
+	if (value.query !== undefined) {
+		if (typeof value.query !== 'string' || value.query.length > MAX_FILTER_VALUE_LENGTH) {
+			throw new InvalidIpcRequestError('検索キーワードが不正です');
+		}
+		filter.query = value.query;
+	}
+	return filter;
+}
+
+function parseStringList(value: unknown, name: string): string[] {
+	if (
+		!Array.isArray(value) ||
+		value.length > MAX_FILTER_VALUES ||
+		value.some((v) => typeof v !== 'string' || v.length > MAX_FILTER_VALUE_LENGTH)
+	) {
+		throw new InvalidIpcRequestError(`${name} が不正です`);
+	}
+	return value as string[];
 }
 
 function parseSessionId(request: unknown): string {

@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import { TimelineView } from '@/features/timeline/components/timeline-view';
 import { useDisplaySettingsStore } from '@/stores/display-settings-store';
+import { useFilterStore } from '@/stores/filter-store';
 import { useTimelineStore } from '@/stores/timeline-store';
 import type {
 	DesktopApi,
@@ -48,6 +49,7 @@ beforeEach(() => {
 		getTimeline,
 		getSessionDetail: vi.fn(),
 		updateSessionAnnotation: vi.fn(),
+		getFilterOptions: vi.fn(async () => ({ projects: [], tags: [] })),
 		onSessionsChanged: (listener) => {
 			notifyChange = listener;
 			return () => {};
@@ -67,6 +69,7 @@ describe('TimelineView', () => {
 		expect(getTimeline).toHaveBeenCalledWith({
 			from: weekStart.toISOString(),
 			to: new Date(2026, 9, 5).toISOString(),
+			filter: {},
 		});
 		expect(screen.getByText('2026/9/28 〜 10/4')).toBeTruthy();
 		// ツールチップにトークン数とメッセージ数を出す
@@ -123,6 +126,7 @@ describe('TimelineView', () => {
 			expect(getTimeline).toHaveBeenLastCalledWith({
 				from: new Date(2026, 8, 21).toISOString(),
 				to: weekStart.toISOString(),
+				filter: {},
 			}),
 		);
 
@@ -132,6 +136,29 @@ describe('TimelineView', () => {
 
 		fireEvent.click(screen.getByRole('button', { name: '今週' }));
 		expect(useTimelineStore.getState().weekStart.getDay()).toBe(1);
+	});
+
+	it('日付を指定するとその日を含む週に移動する', async () => {
+		render(<TimelineView />);
+		await screen.findByRole('button', { name: /^app/ });
+
+		fireEvent.change(screen.getByLabelText('日付を指定して移動'), {
+			target: { value: '2026-11-04' },
+		});
+
+		expect(useTimelineStore.getState().weekStart).toEqual(new Date(2026, 10, 2));
+	});
+
+	it('絞り込み条件をリクエストに含める', async () => {
+		useFilterStore.setState({ projectIds: ['p1'], tags: [], query: ' 誤字 ' });
+		render(<TimelineView />);
+
+		await waitFor(() =>
+			expect(getTimeline).toHaveBeenLastCalledWith(
+				expect.objectContaining({ filter: { projectIds: ['p1'], query: '誤字' } }),
+			),
+		);
+		useFilterStore.getState().clear();
 	});
 
 	it('表示中の週に関係する更新通知を受けたら取り直す', async () => {
@@ -172,7 +199,7 @@ describe('TimelineView', () => {
 		getTimeline.mockResolvedValue(timeline([]));
 		render(<TimelineView />);
 
-		expect(await screen.findByText('この週のセッションはありません。')).toBeTruthy();
+		expect(await screen.findByText('この週に該当するセッションはありません。')).toBeTruthy();
 	});
 
 	it('取得に失敗したらエラーを表示する', async () => {

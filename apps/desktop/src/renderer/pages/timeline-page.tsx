@@ -1,3 +1,4 @@
+import { FilterBar } from '@/features/filters/components/filter-bar';
 import { SessionDetailPanel } from '@/features/session-detail/components/session-detail-panel';
 import { TimelineView } from '@/features/timeline/components/timeline-view';
 
@@ -6,7 +7,10 @@ export function TimelinePage() {
 	return (
 		<div className="flex min-h-0 flex-1">
 			<section aria-label="タイムライン" className="min-w-0 flex-1 overflow-auto p-6">
-				<TimelineView />
+				<div className="flex flex-col gap-4">
+					<FilterBar />
+					<TimelineView />
+				</div>
 			</section>
 			<aside
 				aria-label="セッション詳細"
