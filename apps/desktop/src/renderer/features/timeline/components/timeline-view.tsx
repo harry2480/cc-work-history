@@ -1,12 +1,16 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
 import { formatDay, formatWeekRange } from '@/lib/utils/format';
+import { useDisplaySettingsStore } from '@/stores/display-settings-store';
 import { useTimelineStore } from '@/stores/timeline-store';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTimeline } from '../api/use-timeline';
+import { colorGroupOf, legendOf } from '../utils/color-by';
 import { assignLanes, toBarSegments } from '../utils/layout';
 import { addWeeks, daysOfWeek, isSameDay, startOfWeek, weekPeriod } from '../utils/week';
+import { ColorBySwitch } from './color-by-switch';
+import { ColorLegend } from './color-legend';
 import { SessionBar } from './session-bar';
 
 const HOUR_MARKS = [0, 3, 6, 9, 12, 15, 18, 21];
@@ -19,7 +23,9 @@ export function TimelineView() {
 	const setWeekStart = useTimelineStore((s) => s.setWeekStart);
 	const selectedSessionId = useTimelineStore((s) => s.selectedSessionId);
 	const selectSession = useTimelineStore((s) => s.selectSession);
+	const colorBy = useDisplaySettingsStore((s) => s.colorBy);
 	const { data, loading, error } = useTimeline(weekStart);
+	const legend = useMemo(() => legendOf(data?.sessions ?? [], colorBy), [data, colorBy]);
 	const days = useMemo(() => daysOfWeek(weekStart), [weekStart]);
 	const today = new Date();
 	const isThisWeek = weekStart.getTime() === startOfWeek(today).getTime();
@@ -49,7 +55,7 @@ export function TimelineView() {
 
 	return (
 		<div className="flex flex-col gap-4">
-			<header className="flex items-center gap-2">
+			<header className="flex flex-wrap items-center gap-2">
 				<Button
 					variant="outline"
 					size="icon"
@@ -73,11 +79,15 @@ export function TimelineView() {
 				>
 					今週
 				</Button>
-				<h2 className="ml-2 text-lg font-bold">
+				<h2 className="ml-2 whitespace-nowrap text-lg font-bold">
 					{formatWeekRange(weekStart, weekPeriod(weekStart).to)}
 				</h2>
 				{loading && <span className="text-xs text-muted-foreground">読み込み中…</span>}
+				<div className="ml-auto">
+					<ColorBySwitch />
+				</div>
 			</header>
+			<ColorLegend groups={legend} colorBy={colorBy} />
 
 			{error && (
 				<p role="alert" className="text-sm text-destructive">
@@ -121,6 +131,7 @@ export function TimelineView() {
 									activity={bar.activity}
 									lane={bar.lane}
 									laneCount={barsByDay[dayIndex]?.laneCount ?? 1}
+									color={colorGroupOf(bar.session, colorBy).color}
 									isSelected={bar.session.id === selectedSessionId}
 									onSelect={selectSession}
 								/>

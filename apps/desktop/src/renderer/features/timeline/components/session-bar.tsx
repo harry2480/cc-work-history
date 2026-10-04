@@ -1,4 +1,3 @@
-import { projectColor } from '@/lib/config/palette';
 import { cn } from '@/lib/utils/cn';
 import { formatTime, formatTokens } from '@/lib/utils/format';
 import type { TimelineSessionDto } from '@shared/ipc-contract';
@@ -11,6 +10,8 @@ type Props = {
 	/** 並行するバーを重ねないための段番号と、その日の段の数 */
 	lane: number;
 	laneCount: number;
+	/** バーの色（CSS の色の値） */
+	color: string;
 	isSelected: boolean;
 	onSelect: (sessionId: string) => void;
 };
@@ -22,6 +23,7 @@ export function SessionBar({
 	activity,
 	lane,
 	laneCount,
+	color,
 	isSelected,
 	onSelect,
 }: Props) {
@@ -51,7 +53,7 @@ export function SessionBar({
 					isActive &&
 						'animate-pulse ring-2 ring-foreground/70 ring-offset-1 ring-offset-background',
 				)}
-				style={{ '--session-color': projectColor(session.project.id) } as React.CSSProperties}
+				style={{ '--session-color': color } as React.CSSProperties}
 			/>
 			<div
 				role="tooltip"
