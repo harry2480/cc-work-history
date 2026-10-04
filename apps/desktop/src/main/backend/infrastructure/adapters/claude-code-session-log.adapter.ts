@@ -1,13 +1,31 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type { SessionLogFile, SessionLogGateway } from '../../domain/gateways/session-log.gateway';
-import type { LoggedTodo, SessionLogEntry } from '../../domain/models/session-log-entry.model';
+import type {
+	LoggedTodo,
+	LoggedTodoEvent,
+	SessionLogEntry,
+} from '../../domain/models/session-log-entry.model';
 
 const SESSION_FILE_EXTENSION = '.jsonl';
 /** Claude Code が API を呼ばずに生成したメッセージのモデル名 */
 const SYNTHETIC_MODEL = '<synthetic>';
-/** 作業リストを書き込む Claude Code のツール名 */
+/** 作業リスト全体を書き込む Claude Code のツール名 */
 const TODO_WRITE_TOOL = 'TodoWrite';
+/** タスク単位で作業リストを操作する Claude Code のツール名。結果（tool_result）と組み合わせて読む */
+const TASK_CREATE_TOOL = 'TaskCreate';
+const TASK_UPDATE_TOOL = 'TaskUpdate';
+const MAX_TASK_ID_LENGTH = 100;
+
+/** 結果を待っている TaskCreate / TaskUpdate の呼び出し（tool_use の id → 入力） */
+type PendingTaskCalls = Map<string, { name: string; input: Record<string, unknown> }>;
+
+/** 1 ファイルを読む間だけ持つ状態 */
+type ParseState = {
+	/** assistant の応答は内容ブロックごとに複数行に分かれ、同じ message.id と usage を持つ */
+	assistantEntriesById: Map<string, SessionLogEntry>;
+	pendingTaskCalls: PendingTaskCalls;
+};
 
 /**
  * `~/.claude/projects/<プロジェクト>/<sessionId>.jsonl` を読む本番実装。
@@ -47,20 +65,16 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 	async readEntries(file: SessionLogFile): Promise<SessionLogEntry[]> {
 		const content = await readFile(file.path, 'utf-8');
 		const entries: SessionLogEntry[] = [];
-		// assistant の応答は内容ブロックごとに複数行に分かれ、同じ message.id と usage を持つ
-		const assistantEntriesById = new Map<string, SessionLogEntry>();
+		const state: ParseState = { assistantEntriesById: new Map(), pendingTaskCalls: new Map() };
 
 		for (const line of content.split('\n')) {
-			const entry = this.parseLine(line, assistantEntriesById);
+			const entry = this.parseLine(line, state);
 			if (entry) entries.push(entry);
 		}
 		return entries;
 	}
 
-	private parseLine(
-		line: string,
-		assistantEntriesById: Map<string, SessionLogEntry>,
-	): SessionLogEntry | null {
+	private parseLine(line: string, state: ParseState): SessionLogEntry | null {
 		if (!line.trim()) return null;
 
 		let record: unknown;
@@ -80,17 +94,30 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 		const message = isObject(record.message) ? record.message : {};
 		const cwd = typeof record.cwd === 'string' && record.cwd ? record.cwd : undefined;
 
+		// サブエージェントの作業リストはセッション本体の作業状況ではない
+		const isSidechain = record.isSidechain === true;
+
 		if (record.type === 'user') {
-			return { timestamp, role: 'user', inputTokens: 0, outputTokens: 0, cwd };
+			const entry: SessionLogEntry = {
+				timestamp,
+				role: 'user',
+				inputTokens: 0,
+				outputTokens: 0,
+				cwd,
+			};
+			const events = isSidechain
+				? []
+				: taskEventsFromResults(message.content, record.toolUseResult, state.pendingTaskCalls);
+			if (events.length > 0) entry.todoEvents = events;
+			return entry;
 		}
 
-		// サブエージェントの作業リストはセッション本体の作業状況ではない
-		const todos = record.isSidechain === true ? undefined : extractTodos(message.content);
+		const events = isSidechain ? [] : todoEventsFromCalls(message.content, state.pendingTaskCalls);
 		const messageId = typeof message.id === 'string' ? message.id : null;
-		const seen = messageId ? assistantEntriesById.get(messageId) : undefined;
+		const seen = messageId ? state.assistantEntriesById.get(messageId) : undefined;
 		if (seen) {
-			// 重複行は数えないが、ツール呼び出しは別の行に記録されるため作業リストは拾う
-			if (todos) seen.todos = todos;
+			// 重複行は数えないが、ツール呼び出しは別の行に記録されるため作業リストの操作は拾う
+			if (events.length > 0) seen.todoEvents = [...(seen.todoEvents ?? []), ...events];
 			return null;
 		}
 
@@ -112,8 +139,8 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 			outputTokens: toCount(usage.output_tokens),
 			cwd,
 		};
-		if (todos) entry.todos = todos;
-		if (messageId) assistantEntriesById.set(messageId, entry);
+		if (events.length > 0) entry.todoEvents = events;
+		if (messageId) state.assistantEntriesById.set(messageId, entry);
 		return entry;
 	}
 
@@ -132,23 +159,110 @@ function isObject(value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * assistant メッセージの内容ブロックから、最後の TodoWrite ツール呼び出しの作業リストを取り出す。
- * 呼び出しがなければ undefined。文字列でない項目は捨てる（内容の検証はドメインで行う）
+ * assistant メッセージの内容ブロックから作業リストの操作を取り出す。
+ * TodoWrite はその場でリスト全体の書き込みとして扱う。
+ * TaskCreate / TaskUpdate は割り振られた ID や成否が結果に記録されるため、結果を待つ呼び出しとして覚えておく
  */
-function extractTodos(content: unknown): LoggedTodo[] | undefined {
-	if (!Array.isArray(content)) return undefined;
-	let todos: LoggedTodo[] | undefined;
+function todoEventsFromCalls(content: unknown, pending: PendingTaskCalls): LoggedTodoEvent[] {
+	if (!Array.isArray(content)) return [];
+	const events: LoggedTodoEvent[] = [];
 	for (const block of content) {
-		if (!isObject(block) || block.type !== 'tool_use' || block.name !== TODO_WRITE_TOOL) continue;
-		const input = isObject(block.input) ? block.input : {};
-		if (!Array.isArray(input.todos)) continue;
-		todos = input.todos.flatMap((todo: unknown) =>
-			isObject(todo) && typeof todo.content === 'string' && typeof todo.status === 'string'
-				? [{ content: todo.content, status: todo.status }]
-				: [],
-		);
+		if (!isObject(block) || block.type !== 'tool_use' || !isObject(block.input)) continue;
+		if (block.name === TODO_WRITE_TOOL) {
+			const todos = parseTodos(block.input.todos);
+			if (todos) events.push({ kind: 'todo-write', todos });
+		} else if (
+			(block.name === TASK_CREATE_TOOL || block.name === TASK_UPDATE_TOOL) &&
+			typeof block.id === 'string'
+		) {
+			pending.set(block.id, { name: block.name, input: block.input });
+		}
 	}
-	return todos;
+	return events;
+}
+
+/** TodoWrite の todos。配列でなければ undefined、文字列の content / status を持たない項目は捨てる */
+function parseTodos(value: unknown): LoggedTodo[] | undefined {
+	if (!Array.isArray(value)) return undefined;
+	return value.flatMap((todo: unknown) =>
+		isObject(todo) && typeof todo.content === 'string' && typeof todo.status === 'string'
+			? [{ content: todo.content, status: todo.status }]
+			: [],
+	);
+}
+
+/**
+ * user 行の tool_result から、対応する TaskCreate / TaskUpdate の操作を組み立てる。
+ * 失敗した呼び出し・ID が分からない呼び出し・壊れた入力は無視する。
+ * 行ごとの toolUseResult は、tool_result が 1 つだけの行でのみ信頼する
+ */
+function taskEventsFromResults(
+	content: unknown,
+	toolUseResult: unknown,
+	pending: PendingTaskCalls,
+): LoggedTodoEvent[] {
+	if (!Array.isArray(content)) return [];
+	const results = content.filter(
+		(block): block is Record<string, unknown> =>
+			isObject(block) && block.type === 'tool_result' && typeof block.tool_use_id === 'string',
+	);
+	const detail = results.length === 1 && isObject(toolUseResult) ? toolUseResult : {};
+
+	const events: LoggedTodoEvent[] = [];
+	for (const result of results) {
+		const call = pending.get(result.tool_use_id as string);
+		if (!call) continue;
+		pending.delete(result.tool_use_id as string);
+		if (result.is_error === true || detail.success === false) continue;
+
+		const event =
+			call.name === TASK_CREATE_TOOL
+				? taskCreateEvent(call.input, result, detail)
+				: taskUpdateEvent(call.input);
+		if (event) events.push(event);
+	}
+	return events;
+}
+
+function taskCreateEvent(
+	input: Record<string, unknown>,
+	result: Record<string, unknown>,
+	detail: Record<string, unknown>,
+): LoggedTodoEvent | null {
+	const task = isObject(detail.task) ? detail.task : {};
+	// 結果の本文（"Task #<ID> created ..."）は toolUseResult がない場合の代わり
+	const taskId =
+		toTaskId(task.id) ?? toTaskId(/Task #(\S+) created/.exec(textOf(result.content))?.[1]);
+	const subject =
+		typeof input.subject === 'string'
+			? input.subject
+			: typeof task.subject === 'string'
+				? task.subject
+				: null;
+	if (!taskId || subject === null) return null;
+	return { kind: 'task-create', taskId, subject };
+}
+
+function taskUpdateEvent(input: Record<string, unknown>): LoggedTodoEvent | null {
+	const taskId = toTaskId(input.taskId);
+	if (!taskId) return null;
+	const event: LoggedTodoEvent = { kind: 'task-update', taskId };
+	if (typeof input.subject === 'string') event.subject = input.subject;
+	if (typeof input.status === 'string') event.status = input.status;
+	return event;
+}
+
+function toTaskId(value: unknown): string | null {
+	const id = typeof value === 'number' && Number.isFinite(value) ? String(value) : value;
+	return typeof id === 'string' && id.trim() && id.length <= MAX_TASK_ID_LENGTH ? id.trim() : null;
+}
+
+function textOf(content: unknown): string {
+	if (typeof content === 'string') return content;
+	if (!Array.isArray(content)) return '';
+	return content
+		.map((block) => (isObject(block) && typeof block.text === 'string' ? block.text : ''))
+		.join('\n');
 }
 
 function toCount(value: unknown): number {

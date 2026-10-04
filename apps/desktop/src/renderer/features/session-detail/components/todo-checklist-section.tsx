@@ -9,7 +9,7 @@ const STATUS: Record<TodoStatusDto, { label: string; Icon: typeof CircleIcon; cl
 		pending: { label: '未着手', Icon: CircleIcon, className: '' },
 	};
 
-/** Claude Code の TodoWrite の最後の状態を、読み取り専用のチェックリストとして表示する */
+/** Claude Code の作業リスト（TodoWrite / TaskCreate・TaskUpdate）の最終状態を、読み取り専用のチェックリストとして表示する */
 export function TodoChecklistSection({ todos }: { todos: readonly TodoItemDto[] }) {
 	const completed = todos.filter((t) => t.status === 'completed').length;
 
@@ -46,7 +46,7 @@ export function TodoChecklistSection({ todos }: { todos: readonly TodoItemDto[] 
 				</ul>
 			) : (
 				<p className="text-sm text-muted-foreground">
-					このセッションには Claude Code の TODO リスト（TodoWrite）の記録がありません。
+					このセッションにはタスクの記録がありません。
 				</p>
 			)}
 		</section>

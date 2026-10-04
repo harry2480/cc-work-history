@@ -39,7 +39,8 @@ function session(id: string, minutes: number[], projectId = 'p1', todos?: Logged
 		inputTokens: 10,
 		outputTokens: 1,
 		cwd: '/repo/app',
-		todos: i === minutes.length - 1 ? todos : undefined,
+		todoEvents:
+			i === minutes.length - 1 && todos ? [{ kind: 'todo-write' as const, todos }] : undefined,
 	}));
 	const result = Session.fromLogEntries({ id, projectId, entries });
 	if (!result.success) throw new Error(result.error);

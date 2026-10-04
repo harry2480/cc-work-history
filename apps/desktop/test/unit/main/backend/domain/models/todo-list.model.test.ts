@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { LoggedTodoEvent } from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
 import {
 	MAX_TODO_CONTENT_LENGTH,
 	MAX_TODO_ITEMS,
@@ -100,5 +101,121 @@ describe('TodoList.fromLogged', () => {
 	it('空のリストからは空のチェックリストを作る', () => {
 		expect(TodoList.fromLogged([]).items).toEqual([]);
 		expect(TodoList.empty().items).toEqual([]);
+	});
+});
+
+describe('TodoList.fromLogEvents', () => {
+	const write = (...items: [string, string][]): LoggedTodoEvent => ({
+		kind: 'todo-write',
+		todos: items.map(([content, status]) => ({ content, status })),
+	});
+	const create = (taskId: string, subject: string): LoggedTodoEvent => ({
+		kind: 'task-create',
+		taskId,
+		subject,
+	});
+	const update = (
+		taskId: string,
+		fields: { status?: string; subject?: string } = {},
+	): LoggedTodoEvent => ({ kind: 'task-update', taskId, ...fields });
+
+	it('操作がなければ空にする', () => {
+		expect(TodoList.fromLogEvents([]).items).toEqual([]);
+	});
+
+	it('TodoWrite は最後の呼び出しの内容を使い、空のリストなら空にする', () => {
+		expect(
+			contents(TodoList.fromLogEvents([write(['a', 'pending']), write(['a', 'completed'])])),
+		).toEqual([['a', 'completed']]);
+		expect(contents(TodoList.fromLogEvents([write(['a', 'pending']), write()]))).toEqual([]);
+	});
+
+	it('TaskCreate は pending で作成順に並べ、TaskUpdate の状態と件名を反映する', () => {
+		const list = TodoList.fromLogEvents([
+			create('1', 'a'),
+			create('2', 'b'),
+			create('3', 'c'),
+			update('2', { status: 'in_progress' }),
+			update('1', { status: 'completed', subject: 'a（改名）' }),
+		]);
+
+		expect(contents(list)).toEqual([
+			['a（改名）', 'completed'],
+			['b', 'in_progress'],
+			['c', 'pending'],
+		]);
+	});
+
+	it('deleted のタスクは除き、未知の状態や空の件名は無視して他の更新は反映する', () => {
+		const list = TodoList.fromLogEvents([
+			create('1', 'a'),
+			create('2', 'b'),
+			update('1', { status: 'deleted' }),
+			update('2', { status: 'blocked', subject: 'b2' }),
+			update('2', { subject: '  ' }),
+		]);
+
+		expect(contents(list)).toEqual([['b2', 'pending']]);
+	});
+
+	it('作成されていない ID への TaskUpdate は無視する', () => {
+		const list = TodoList.fromLogEvents([
+			update('9', { status: 'completed' }),
+			create('1', 'a'),
+			update('2', { status: 'completed' }),
+		]);
+
+		expect(contents(list)).toEqual([['a', 'pending']]);
+	});
+
+	it('すべて完了した後に作成されたら、片付けられたものとして完了済みのタスクを除く（ID の振り直し）', () => {
+		const list = TodoList.fromLogEvents([
+			create('1', 'a'),
+			create('2', 'b'),
+			update('1', { status: 'completed' }),
+			update('2', { status: 'completed' }),
+			create('1', 'c'),
+		]);
+
+		expect(contents(list)).toEqual([['c', 'pending']]);
+	});
+
+	it('未完了のタスクが残っていれば、新しいタスクは末尾に追加する', () => {
+		const list = TodoList.fromLogEvents([
+			create('1', 'a'),
+			create('2', 'b'),
+			update('1', { status: 'completed' }),
+			create('3', 'c'),
+		]);
+
+		expect(contents(list)).toEqual([
+			['a', 'completed'],
+			['b', 'pending'],
+			['c', 'pending'],
+		]);
+	});
+
+	it('両方の方式が混ざっていたら、最後に有効な操作をした方式の状態を使う', () => {
+		expect(contents(TodoList.fromLogEvents([write(['w', 'pending']), create('1', 't')]))).toEqual([
+			['t', 'pending'],
+		]);
+		expect(
+			contents(TodoList.fromLogEvents([create('1', 't'), write(['w', 'in_progress'])])),
+		).toEqual([['w', 'in_progress']]);
+		// 無視された TaskUpdate では方式を切り替えない
+		expect(
+			contents(TodoList.fromLogEvents([create('1', 't'), write(['w', 'pending']), update('9')])),
+		).toEqual([['w', 'pending']]);
+	});
+
+	it('タスクの件名も上限で切り詰め、項目数も上限で打ち切る', () => {
+		const list = TodoList.fromLogEvents(
+			Array.from({ length: MAX_TODO_ITEMS + 1 }, (_, i) =>
+				create(String(i), 'あ'.repeat(MAX_TODO_CONTENT_LENGTH + 1)),
+			),
+		);
+
+		expect(list.items).toHaveLength(MAX_TODO_ITEMS);
+		expect([...(list.items[0]?.content ?? '')].length).toBe(MAX_TODO_CONTENT_LENGTH);
 	});
 });

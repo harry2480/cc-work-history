@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionLogEntry } from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
+import type {
+	LoggedTodo,
+	LoggedTodoEvent,
+	SessionLogEntry,
+} from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
 import {
 	DEFAULT_IDLE_THRESHOLD_MS,
 	Session,
@@ -118,16 +122,22 @@ describe('Session.fromLogEntries', () => {
 
 describe('Session.fromLogEntries の作業状況チェックリスト', () => {
 	const todos = (session: Session) => session.todos.items.map((t) => [t.content, t.status]);
+	const write = (items: LoggedTodo[]): LoggedTodoEvent => ({ kind: 'todo-write', todos: items });
 
-	it('時刻順で最後に書き込まれた TodoWrite の内容を使う', () => {
+	it('メッセージを時刻順に並べてから操作をたどる', () => {
 		const session = build([
-			entry(20, { role: 'assistant', todos: [{ content: 'b', status: 'completed' }] }),
+			entry(20, {
+				role: 'assistant',
+				todoEvents: [write([{ content: 'b', status: 'completed' }])],
+			}),
 			entry(0),
 			entry(10, {
 				role: 'assistant',
-				todos: [
-					{ content: 'a', status: 'in_progress' },
-					{ content: 'b', status: 'pending' },
+				todoEvents: [
+					write([
+						{ content: 'a', status: 'in_progress' },
+						{ content: 'b', status: 'pending' },
+					]),
 				],
 			}),
 			entry(30),
@@ -136,31 +146,21 @@ describe('Session.fromLogEntries の作業状況チェックリスト', () => {
 		expect(todos(session)).toEqual([['b', 'completed']]);
 	});
 
-	it('最後に空のリストが書き込まれたら空にする', () => {
+	it('Task 系の操作は別のメッセージにまたがってたどる', () => {
 		const session = build([
-			entry(0, { role: 'assistant', todos: [{ content: 'a', status: 'pending' }] }),
-			entry(10, { role: 'assistant', todos: [] }),
+			entry(0, { todoEvents: [{ kind: 'task-create', taskId: '1', subject: 'a' }] }),
+			entry(5, { todoEvents: [{ kind: 'task-create', taskId: '2', subject: 'b' }] }),
+			entry(10, { todoEvents: [{ kind: 'task-update', taskId: '1', status: 'completed' }] }),
 		]);
 
-		expect(todos(session)).toEqual([]);
+		expect(todos(session)).toEqual([
+			['a', 'completed'],
+			['b', 'pending'],
+		]);
 	});
 
-	it('TodoWrite の記録がなければ空にする', () => {
+	it('作業リストの操作がなければ空にする', () => {
 		expect(todos(build([entry(0), entry(10, { role: 'assistant' })]))).toEqual([]);
-	});
-
-	it('不正な項目は捨てる', () => {
-		const session = build([
-			entry(0, {
-				role: 'assistant',
-				todos: [
-					{ content: 'a', status: 'bogus' },
-					{ content: 'b', status: 'pending' },
-				],
-			}),
-		]);
-
-		expect(todos(session)).toEqual([['b', 'pending']]);
 	});
 });
 

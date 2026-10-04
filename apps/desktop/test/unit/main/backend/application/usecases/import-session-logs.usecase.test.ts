@@ -127,11 +127,14 @@ describe('ImportSessionLogsUseCase', () => {
 		expect(repos.sessions.sessions.get('s2')?.messageCount).toBe(2);
 	});
 
-	it('ログ中の TodoWrite の最後の状態を作業状況チェックリストとして取り込み、ログが変わったら更新する', async () => {
-		const todoMsg = (min: number, todos: SessionLogEntry['todos']): SessionLogEntry => ({
+	it('ログ中の作業リストの最終状態を作業状況チェックリストとして取り込み、ログが変わったら更新する', async () => {
+		const todoMsg = (
+			min: number,
+			todos: { content: string; status: string }[],
+		): SessionLogEntry => ({
 			...msg(min),
 			role: 'assistant',
-			todos,
+			todoEvents: [{ kind: 'todo-write', todos }],
 		});
 		const { repos, run } = setup([]);
 		await run([

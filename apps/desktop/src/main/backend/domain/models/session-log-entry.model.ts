@@ -12,10 +12,10 @@ export type SessionLogEntry = {
 	/** メッセージ送信時の作業ディレクトリ */
 	cwd?: string;
 	/**
-	 * このメッセージで Claude Code の TodoWrite ツールが書き込んだ作業リスト（呼び出し時点の全項目、未検証）。
-	 * TodoWrite を呼んでいなければ undefined、空のリストを書き込んだなら空配列
+	 * このメッセージで記録された作業リストの操作（記録順、未検証）。
+	 * Claude Code の TodoWrite（リスト全体の書き込み）と TaskCreate / TaskUpdate（タスク単位の作成・更新）
 	 */
-	todos?: readonly LoggedTodo[];
+	todoEvents?: readonly LoggedTodoEvent[];
 };
 
 /** ログに記録された TodoWrite の 1 項目。検証は TodoList が行う */
@@ -23,3 +23,12 @@ export type LoggedTodo = {
 	content: string;
 	status: string;
 };
+
+/** ログに記録された作業リストの操作。値の検証は TodoList が行う */
+export type LoggedTodoEvent =
+	/** TodoWrite: 呼び出し時点のリスト全体（空配列ならリストを空にした） */
+	| { kind: 'todo-write'; todos: readonly LoggedTodo[] }
+	/** TaskCreate: 割り振られた ID と件名で作成された */
+	| { kind: 'task-create'; taskId: string; subject: string }
+	/** TaskUpdate: 指定されたフィールドだけを更新した */
+	| { kind: 'task-update'; taskId: string; subject?: string; status?: string };

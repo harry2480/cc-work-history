@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GetSessionDetailUseCase } from '../../../../../../src/main/backend/application/usecases/get-session-detail.usecase';
 import { GetTimelineUseCase } from '../../../../../../src/main/backend/application/usecases/get-timeline.usecase';
 import { Project } from '../../../../../../src/main/backend/domain/models/project.model';
-import type { SessionLogEntry } from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
+import type {
+	LoggedTodo,
+	SessionLogEntry,
+} from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
 import { Session } from '../../../../../../src/main/backend/domain/models/session.model';
 import { migrationFiles } from '../../../../../../src/main/backend/infrastructure/db/migrations';
 import { openSqliteDatabase } from '../../../../../../src/main/backend/infrastructure/db/sqlite-connection';
@@ -30,12 +33,7 @@ let db: Database.Database;
 let getTimeline: GetTimelineUseCase;
 let getSessionDetail: GetSessionDetailUseCase;
 
-function save(
-	id: string,
-	minutes: number[],
-	models: string[] = [],
-	todos?: SessionLogEntry['todos'],
-) {
+function save(id: string, minutes: number[], models: string[] = [], todos?: LoggedTodo[]) {
 	const entries: SessionLogEntry[] = minutes.map((m, i) => ({
 		timestamp: new Date(monday + m * MIN),
 		role: i % 2 === 0 ? 'user' : 'assistant',
@@ -43,7 +41,8 @@ function save(
 		inputTokens: 100,
 		outputTokens: 10,
 		cwd: '/Users/me/repo/app',
-		todos: i === minutes.length - 1 ? todos : undefined,
+		todoEvents:
+			i === minutes.length - 1 && todos ? [{ kind: 'todo-write' as const, todos }] : undefined,
 	}));
 	const session = Session.fromLogEntries({ id, projectId: 'p1', entries });
 	if (!session.success) throw new Error(session.error);

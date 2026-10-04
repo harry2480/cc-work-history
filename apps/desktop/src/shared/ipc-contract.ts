@@ -176,7 +176,7 @@ export type SessionDetailDto = {
 	summaryEditedManually: boolean;
 	tags: SessionTagDto[];
 	activities: ActivityDto[];
-	/** 作業状況チェックリスト（ログ中の Claude Code の TodoWrite の最後の状態）。読み取り専用 */
+	/** 作業状況チェックリスト（ログ中の Claude Code の TodoWrite / TaskCreate・TaskUpdate の最終状態）。読み取り専用 */
 	todos: TodoItemDto[];
 };
 

@@ -29,7 +29,7 @@ type SessionProps = {
 	/** 使われたモデル（初出順・重複なし） */
 	models: readonly string[];
 	activities: readonly Activity[];
-	/** 作業状況チェックリスト（ログ中の TodoWrite の最後の状態）。省略時は空 */
+	/** 作業状況チェックリスト（ログ中の TodoWrite / Task 系ツールの最終状態）。省略時は空 */
 	todos?: TodoList;
 };
 
@@ -142,13 +142,9 @@ export class Session {
 		return now.getTime() - this.props.endedAt.getTime() <= idleThresholdMs ? 'active' : 'completed';
 	}
 
-	/** TodoWrite は呼び出しのたびにリスト全体を書き込むため、最後に書き込まれたものだけを使う */
+	/** 作業リストの操作を時刻順につなげて、セッション終了時点のチェックリストを組み立てる */
 	private static latestTodos(sorted: readonly SessionLogEntry[]): TodoList {
-		for (let i = sorted.length - 1; i >= 0; i--) {
-			const todos = sorted[i]?.todos;
-			if (todos) return TodoList.fromLogged(todos);
-		}
-		return TodoList.empty();
+		return TodoList.fromLogEvents(sorted.flatMap((e) => e.todoEvents ?? []));
 	}
 
 	private static splitIntoActivities(

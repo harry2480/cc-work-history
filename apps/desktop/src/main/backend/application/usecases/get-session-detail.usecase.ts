@@ -24,7 +24,7 @@ export type SessionDetail = {
 	summaryEditedManually: boolean;
 	tags: { name: string; source: TagSource }[];
 	activities: TimelineActivity[];
-	/** 作業状況チェックリスト（ログ中の TodoWrite の最後の状態。読み取り専用） */
+	/** 作業状況チェックリスト（ログ中の TodoWrite / Task 系ツールの最終状態。読み取り専用） */
 	todos: { content: string; status: TodoStatus }[];
 };
 

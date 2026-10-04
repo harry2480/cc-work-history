@@ -1,4 +1,4 @@
--- セッションの作業状況チェックリスト（ログ中の Claude Code の TodoWrite ツールの最後の状態）。
+-- セッションの作業状況チェックリスト（ログ中の Claude Code の TodoWrite / TaskCreate・TaskUpdate ツールの最終状態）。
 -- ログから取り込む読み取り専用の情報で、セッションの取り込み（sessions の upsert）のたびに丸ごと置き換える
 CREATE TABLE session_todos (
 	session_id TEXT NOT NULL REFERENCES sessions (id) ON DELETE CASCADE,
