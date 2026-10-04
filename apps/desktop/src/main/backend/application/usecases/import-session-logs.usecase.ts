@@ -1,8 +1,11 @@
 import type { SessionLogFile, SessionLogGateway } from '../../domain/gateways/session-log.gateway';
 import { Project } from '../../domain/models/project.model';
-import { Session } from '../../domain/models/session.model';
+import { DEFAULT_IDLE_THRESHOLD_MS, Session } from '../../domain/models/session.model';
 import type { ProjectRepository } from '../../domain/repositories/project.repository';
-import type { SessionLogFileRepository } from '../../domain/repositories/session-log-file.repository';
+import type {
+	ImportedSessionLogFile,
+	SessionLogFileRepository,
+} from '../../domain/repositories/session-log-file.repository';
 import type { SessionRepository } from '../../domain/repositories/session.repository';
 
 export type ImportFailure = {
@@ -39,15 +42,18 @@ type Options = {
 	/** この件数ごとに main プロセスのイベントループへ制御を返す */
 	batchSize?: number;
 	yieldControl?: () => Promise<void>;
+	/** 活動区間を分ける無操作時間の閾値。設定の変更を反映するため、取り込みのたびに読む */
+	idleThresholdMs?: () => number;
 };
 
 /**
  * Claude Code のセッションログを DB に取り込む。
- * 前回取り込んだときから更新日時・サイズが変わったファイルだけを読む。
+ * 前回取り込んだときから更新日時・サイズ、または活動区間の閾値が変わったファイルだけを読む。
  */
 export class ImportSessionLogsUseCase {
 	private readonly batchSize: number;
 	private readonly yieldControl: () => Promise<void>;
+	private readonly idleThresholdMs: () => number;
 
 	constructor(
 		private readonly sessionLogGateway: SessionLogGateway,
@@ -58,6 +64,7 @@ export class ImportSessionLogsUseCase {
 	) {
 		this.batchSize = options.batchSize ?? 50;
 		this.yieldControl = options.yieldControl ?? (() => new Promise((r) => setImmediate(r)));
+		this.idleThresholdMs = options.idleThresholdMs ?? (() => DEFAULT_IDLE_THRESHOLD_MS);
 	}
 
 	async execute({ projectIds }: ExecuteOptions = {}): Promise<ImportResult> {
@@ -70,18 +77,19 @@ export class ImportSessionLogsUseCase {
 			importedSessions: [],
 		};
 		const importedFiles = this.sessionLogFileRepository.findAll();
+		const idleThresholdMs = this.idleThresholdMs();
 		const targetProjectIds = projectIds ?? (await this.sessionLogGateway.listProjectIds());
 		let processedInBatch = 0;
 
 		for (const projectId of targetProjectIds) {
 			for (const file of await this.sessionLogGateway.listSessionFiles(projectId)) {
 				result.scanned++;
-				if (this.isUnchanged(file, importedFiles.get(file.path))) {
+				if (this.isUnchanged(file, importedFiles.get(file.path), idleThresholdMs)) {
 					result.unchanged++;
 					continue;
 				}
 
-				await this.importFile(file, result);
+				await this.importFile(file, idleThresholdMs, result);
 
 				processedInBatch++;
 				if (processedInBatch >= this.batchSize) {
@@ -93,19 +101,24 @@ export class ImportSessionLogsUseCase {
 		return result;
 	}
 
-	private async importFile(file: SessionLogFile, result: ImportResult): Promise<void> {
+	private async importFile(
+		file: SessionLogFile,
+		idleThresholdMs: number,
+		result: ImportResult,
+	): Promise<void> {
 		try {
 			const entries = await this.sessionLogGateway.readEntries(file);
 			const session = Session.fromLogEntries({
 				id: file.sessionId,
 				projectId: file.projectId,
 				entries,
+				idleThresholdMs,
 			});
 
 			if (!session.success) {
 				if (session.error === 'NO_ENTRIES') {
 					result.empty++;
-					this.sessionLogFileRepository.save(file);
+					this.sessionLogFileRepository.save({ ...file, idleThresholdMs });
 				} else {
 					result.failures.push({ path: file.path, reason: session.error });
 				}
@@ -115,7 +128,7 @@ export class ImportSessionLogsUseCase {
 			this.projectRepository.save(this.projectFor(session.value));
 			this.sessionRepository.save(session.value);
 			// 記録は最後に保存する。途中で失敗したら次回に再取り込みされる
-			this.sessionLogFileRepository.save(file);
+			this.sessionLogFileRepository.save({ ...file, idleThresholdMs });
 			result.imported++;
 			result.importedSessions.push({
 				id: session.value.id,
@@ -141,11 +154,17 @@ export class ImportSessionLogsUseCase {
 		return created.value;
 	}
 
-	private isUnchanged(file: SessionLogFile, imported: SessionLogFile | undefined): boolean {
+	/** 前回から更新日時・サイズが変わらず、同じ閾値で活動区間を計算済みなら読まなくてよい */
+	private isUnchanged(
+		file: SessionLogFile,
+		imported: ImportedSessionLogFile | undefined,
+		idleThresholdMs: number,
+	): boolean {
 		return (
 			imported !== undefined &&
 			imported.modifiedAt.getTime() === file.modifiedAt.getTime() &&
-			imported.sizeBytes === file.sizeBytes
+			imported.sizeBytes === file.sizeBytes &&
+			imported.idleThresholdMs === idleThresholdMs
 		);
 	}
 }

@@ -35,8 +35,12 @@ export function TimelineView() {
 	const selectedSessionId = useTimelineStore((s) => s.selectedSessionId);
 	const selectSession = useTimelineStore((s) => s.selectSession);
 	const colorBy = useDisplaySettingsStore((s) => s.colorBy);
+	const colorOverrides = useDisplaySettingsStore((s) => s.colorOverrides);
 	const { data, loading, error } = useTimeline(weekStart);
-	const legend = useMemo(() => legendOf(data?.sessions ?? [], colorBy), [data, colorBy]);
+	const legend = useMemo(
+		() => legendOf(data?.sessions ?? [], colorBy, colorOverrides),
+		[data, colorBy, colorOverrides],
+	);
 	const days = useMemo(() => daysOfWeek(weekStart), [weekStart]);
 	const today = new Date();
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -195,7 +199,7 @@ export function TimelineView() {
 										activity={bar.activity}
 										lane={bar.lane}
 										laneCount={barsByDay[dayIndex]?.laneCount ?? 1}
-										color={colorGroupOf(bar.session, colorBy).color}
+										color={colorGroupOf(bar.session, colorBy, colorOverrides).color}
 										isSelected={bar.session.id === selectedSessionId}
 										onSelect={selectSession}
 									/>

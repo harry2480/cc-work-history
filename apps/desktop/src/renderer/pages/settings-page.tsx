@@ -1,10 +1,12 @@
-import { PagePlaceholder } from '@/components/elements/page-placeholder';
+import { useFilterOptions } from '@/features/filters/api/use-filter-options';
+import { SettingsView } from '@/features/settings/components/settings-view';
 
 export function SettingsPage() {
+	const filterOptions = useFilterOptions();
+
 	return (
-		<PagePlaceholder
-			title="設定"
-			description="データパスの確認、色設定、テーマの切り替えなどをここで行います。"
-		/>
+		<div className="min-h-0 flex-1 overflow-auto p-6">
+			<SettingsView filterOptions={filterOptions} />
+		</div>
 	);
 }

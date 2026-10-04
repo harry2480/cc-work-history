@@ -1,5 +1,5 @@
 import { NEUTRAL_COLOR, STATUS_COLORS, paletteColor } from '@/lib/config/palette';
-import type { ColorBy } from '@/stores/display-settings-store';
+import type { ColorBy, ColorOverrides } from '@/stores/display-settings-store';
 import type { TimelineSessionDto } from '@shared/ipc-contract';
 
 export type ColorGroup = {
@@ -11,17 +11,24 @@ export type ColorGroup = {
 
 const STATUS_LABELS = { active: '進行中', completed: '完了' } as const;
 
+const NO_OVERRIDES: ColorOverrides = { projects: {}, tags: {} };
+
 /**
  * セッションの色を、色分けの基準に応じて決める。
- * 複数のタグを持つセッションは最初のタグ（手動で付けたもの → 自動生成の順）の色にする
+ * 複数のタグを持つセッションは最初のタグ（手動で付けたもの → 自動生成の順）の色にする。
+ * 設定画面で色を選んだプロジェクト・タグはその色にする
  */
-export function colorGroupOf(session: TimelineSessionDto, colorBy: ColorBy): ColorGroup {
+export function colorGroupOf(
+	session: TimelineSessionDto,
+	colorBy: ColorBy,
+	overrides: ColorOverrides = NO_OVERRIDES,
+): ColorGroup {
 	switch (colorBy) {
 		case 'project':
 			return {
 				key: `project:${session.project.id}`,
 				label: session.project.name,
-				color: paletteColor(session.project.id),
+				color: paletteColor(session.project.id, overrides.projects[session.project.id]),
 			};
 		case 'tag': {
 			const tag = session.tags[0];
@@ -29,7 +36,7 @@ export function colorGroupOf(session: TimelineSessionDto, colorBy: ColorBy): Col
 				? {
 						key: `tag:${tag.toLowerCase()}`,
 						label: `#${tag}`,
-						color: paletteColor(tag.toLowerCase()),
+						color: paletteColor(tag.toLowerCase(), overrides.tags[tag.toLowerCase()]),
 					}
 				: { key: 'tag:none', label: 'タグなし', color: NEUTRAL_COLOR };
 		}
@@ -43,10 +50,14 @@ export function colorGroupOf(session: TimelineSessionDto, colorBy: ColorBy): Col
 }
 
 /** 凡例に出す色のグループ（重複なし・ラベル順。「タグなし」は最後） */
-export function legendOf(sessions: readonly TimelineSessionDto[], colorBy: ColorBy): ColorGroup[] {
+export function legendOf(
+	sessions: readonly TimelineSessionDto[],
+	colorBy: ColorBy,
+	overrides: ColorOverrides = NO_OVERRIDES,
+): ColorGroup[] {
 	const groups = new Map<string, ColorGroup>();
 	for (const session of sessions) {
-		const group = colorGroupOf(session, colorBy);
+		const group = colorGroupOf(session, colorBy, overrides);
 		groups.set(group.key, group);
 	}
 	return [...groups.values()].sort((a, b) => {

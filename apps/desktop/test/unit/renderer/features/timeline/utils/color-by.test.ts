@@ -1,5 +1,5 @@
 import { colorGroupOf, legendOf } from '@/features/timeline/utils/color-by';
-import { NEUTRAL_COLOR, STATUS_COLORS, paletteColor } from '@/lib/config/palette';
+import { NEUTRAL_COLOR, STATUS_COLORS, paletteColor, paletteColorAt } from '@/lib/config/palette';
 import type { TimelineSessionDto } from '@shared/ipc-contract';
 import { describe, expect, it } from 'vitest';
 
@@ -20,6 +20,19 @@ function session(overrides: Partial<TimelineSessionDto> = {}): TimelineSessionDt
 }
 
 describe('colorGroupOf', () => {
+	it('設定画面で選んだプロジェクト・タグの色を使う（タグは大文字小文字を区別しない）', () => {
+		const overrides = { projects: { p1: 4 }, tags: { readme: 7 } };
+
+		expect(colorGroupOf(session(), 'project', overrides).color).toBe(paletteColorAt(4));
+		expect(colorGroupOf(session({ tags: ['README'] }), 'tag', overrides).color).toBe(
+			paletteColorAt(7),
+		);
+		expect(
+			colorGroupOf(session({ project: { id: 'p2', name: 'x', path: '/x' } }), 'project', overrides)
+				.color,
+		).toBe(paletteColor('p2'));
+	});
+
 	it('プロジェクトで色分けすると、プロジェクト ID から色を選ぶ', () => {
 		expect(colorGroupOf(session(), 'project')).toEqual({
 			key: 'project:p1',

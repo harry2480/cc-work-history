@@ -1,9 +1,13 @@
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
-import { openAppDatabase } from './backend/presentation/composition/database.composition';
-import { createImportSessionLogsUseCase } from './backend/presentation/composition/import-session-logs.composition';
+import type { ImportResult } from './backend/application/usecases/import-session-logs.usecase';
+import {
+	openAppDatabase,
+	resolveDatabasePath,
+} from './backend/presentation/composition/database.composition';
 import { registerIpcHandlers } from './backend/presentation/composition/ipc-handlers.composition';
+import { resolveSessionLogRootDir } from './backend/presentation/composition/session-log.composition';
 import { createWatchSessionLogsUseCase } from './backend/presentation/composition/watch-session-logs.composition';
 import { createSessionsChangedPublisher } from './backend/presentation/events/sessions-changed.event';
 
@@ -26,25 +30,30 @@ async function importAndWatchSessionLogs(db: Database.Database): Promise<void> {
 	const publish = createSessionsChangedPublisher(() =>
 		BrowserWindow.getAllWindows().map((window) => window.webContents),
 	);
-	watchSessionLogs = createWatchSessionLogsUseCase(db, publish);
+	const watch = createWatchSessionLogsUseCase(db, publish);
+	watchSessionLogs = watch;
 	try {
-		const result = await createImportSessionLogsUseCase(db).execute();
-		// 取り込み前に開いた画面も最新にするため、起動時の取り込み結果も通知する
-		watchSessionLogs.publish(result);
-		console.info('[import] セッションログを取り込みました', {
-			scanned: result.scanned,
-			imported: result.imported,
-			unchanged: result.unchanged,
-			empty: result.empty,
-			failures: result.failures.length,
-		});
-		for (const failure of result.failures) {
-			console.warn('[import] 取り込めなかったファイル', failure);
-		}
+		// 起動時の取り込みも、ファイル監視・設定変更による取り込みと同じ順番待ちで実行する。
+		// 取り込み前に開いた画面も最新になるよう、結果は通知される
+		logImportResult('起動時', await watch.importAll());
 	} catch (error) {
 		console.error('[import] セッションログの取り込みに失敗しました', error);
 	}
-	watchSessionLogs.start();
+	// 取り込み中に終了処理が始まっていたら、監視を始めない
+	if (!quitting) watch.start();
+}
+
+function logImportResult(trigger: string, result: ImportResult): void {
+	console.info(`[import] セッションログを取り込みました（${trigger}）`, {
+		scanned: result.scanned,
+		imported: result.imported,
+		unchanged: result.unchanged,
+		empty: result.empty,
+		failures: result.failures.length,
+	});
+	for (const failure of result.failures) {
+		console.warn('[import] 取り込めなかったファイル', failure);
+	}
 }
 
 function createWindow(): void {
@@ -79,7 +88,18 @@ app.whenReady().then(() => {
 		app.quit();
 		return;
 	}
-	registerIpcHandlers(ipcMain, database);
+	registerIpcHandlers(ipcMain, database, {
+		paths: {
+			logDirectory: resolveSessionLogRootDir(),
+			databasePath: resolveDatabasePath(app.getPath('userData')),
+		},
+		importAll: async () => {
+			if (!watchSessionLogs) throw new Error('取り込みの準備ができていません');
+			const result = await watchSessionLogs.importAll();
+			logImportResult('設定の変更', result);
+			return result;
+		},
+	});
 	createWindow();
 	void importAndWatchSessionLogs(database);
 

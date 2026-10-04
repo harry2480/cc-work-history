@@ -8,7 +8,10 @@ import type { Project } from '../../../../../../src/main/backend/domain/models/p
 import type { SessionLogEntry } from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
 import type { Session } from '../../../../../../src/main/backend/domain/models/session.model';
 import type { ProjectRepository } from '../../../../../../src/main/backend/domain/repositories/project.repository';
-import type { SessionLogFileRepository } from '../../../../../../src/main/backend/domain/repositories/session-log-file.repository';
+import type {
+	ImportedSessionLogFile,
+	SessionLogFileRepository,
+} from '../../../../../../src/main/backend/domain/repositories/session-log-file.repository';
 import type { SessionRepository } from '../../../../../../src/main/backend/domain/repositories/session.repository';
 import {
 	type StubSession,
@@ -45,11 +48,11 @@ class InMemorySessionRepository implements SessionRepository {
 }
 
 class InMemorySessionLogFileRepository implements SessionLogFileRepository {
-	readonly files = new Map<string, SessionLogFile>();
+	readonly files = new Map<string, ImportedSessionLogFile>();
 	findAll() {
 		return new Map(this.files);
 	}
-	save(file: SessionLogFile) {
+	save(file: ImportedSessionLogFile) {
 		this.files.set(file.path, file);
 	}
 }
@@ -199,5 +202,33 @@ describe('ImportSessionLogsUseCase（対象の絞り込みと結果）', () => {
 			{ id: 's1', startedAt: new Date(t0), endedAt: new Date(t0 + 10 * 60_000) },
 		]);
 		expect([...repos.sessions.sessions.keys()]).toEqual(['s1']);
+	});
+
+	it('閾値が前回の取り込みと変わったファイルは、変更がなくても読み直して活動区間を分け直す', async () => {
+		const repos = {
+			projects: new InMemoryProjectRepository(),
+			sessions: new InMemorySessionRepository(),
+			files: new InMemorySessionLogFileRepository(),
+		};
+		let thresholdMinutes = 30;
+		const useCase = new ImportSessionLogsUseCase(
+			new StubSessionLogAdapter([
+				{ projectId: 'p1', sessionId: 's1', entries: [msg(0), msg(20), msg(40)] },
+			]),
+			repos.projects,
+			repos.sessions,
+			repos.files,
+			{ yieldControl: async () => {}, idleThresholdMs: () => thresholdMinutes * 60_000 },
+		);
+
+		await useCase.execute();
+		expect(repos.sessions.sessions.get('s1')?.activities).toHaveLength(1);
+		expect(repos.files.files.get('stub://p1/s1.jsonl')?.idleThresholdMs).toBe(30 * 60_000);
+		expect((await useCase.execute()).unchanged).toBe(1);
+
+		thresholdMinutes = 10;
+		expect(await useCase.execute()).toMatchObject({ imported: 1, unchanged: 0 });
+		expect(repos.sessions.sessions.get('s1')?.activities).toHaveLength(3);
+		expect((await useCase.execute()).unchanged).toBe(1);
 	});
 });
