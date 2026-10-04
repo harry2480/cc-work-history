@@ -10,7 +10,7 @@
 		"typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.test.json",
 		"lint": "biome check .",
 		"test:unit": "vitest run --dir test/unit",
-		"test:coverage": "vitest run --dir test/unit --coverage",
+		"test:coverage": "vitest run --coverage",
 		"test:integration": "vitest run --dir test/integration",
 		"depcruise": "depcruise src --config .dependency-cruiser.cjs"
 	},
