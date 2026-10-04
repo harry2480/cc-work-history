@@ -18,6 +18,9 @@ export function createImportSessionLogsUseCase(
 		new SqliteProjectRepository(db),
 		new SqliteSessionRepository(db),
 		new SqliteSessionLogFileRepository(db),
-		{ idleThresholdMs: () => appSettingsRepository.get().idleThresholdMs },
+		{
+			idleThresholdMs: () => appSettingsRepository.get().idleThresholdMs,
+			transaction: (fn) => db.transaction(fn)(),
+		},
 	);
 }

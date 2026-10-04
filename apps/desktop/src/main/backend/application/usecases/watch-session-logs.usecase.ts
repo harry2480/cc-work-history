@@ -9,6 +9,9 @@ export type SessionsChangedEvent = {
 	to: Date;
 };
 
+/** 差分取り込みが失敗したときに再試行する回数 */
+const MAX_RETRIES = 3;
+
 type ImportSessionLogs = {
 	execute(options: {
 		projectIds?: readonly string[];
@@ -31,6 +34,8 @@ export class WatchSessionLogsUseCase {
 	private readonly onError: (error: unknown) => void;
 	private readonly pendingProjectIds = new Set<string>();
 	private timer: ReturnType<typeof setTimeout> | null = null;
+	/** 差分取り込みが続けて失敗した回数（上限まで、同じプロジェクトをもう一度取り込む） */
+	private consecutiveFailures = 0;
 	private running: Promise<void> | null = null;
 	private stopped = false;
 
@@ -129,8 +134,21 @@ export class WatchSessionLogsUseCase {
 
 		this.running = this.importSessionLogs
 			.execute({ projectIds, shouldStop: this.isStopped })
-			.then((result) => this.publish(result))
-			.catch(this.onError)
+			.then((result) => {
+				this.consecutiveFailures = 0;
+				this.publish(result);
+			})
+			.catch((error) => {
+				this.onError(error);
+				// 一時的な失敗なら次の機会に取り込めるよう、対象のプロジェクトを戻して再試行する
+				this.consecutiveFailures++;
+				if (this.consecutiveFailures <= MAX_RETRIES && !this.stopped) {
+					for (const id of projectIds) this.pendingProjectIds.add(id);
+					this.schedule();
+				} else {
+					this.consecutiveFailures = 0;
+				}
+			})
 			.finally(() => {
 				this.running = null;
 			});

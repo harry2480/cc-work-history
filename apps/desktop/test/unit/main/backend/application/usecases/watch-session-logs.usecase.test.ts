@@ -293,4 +293,21 @@ describe('WatchSessionLogsUseCase', () => {
 
 		expect(errors).toEqual([new Error('EMFILE')]);
 	});
+
+	it('差分取り込みが失敗したら、同じプロジェクトを再試行する（3 回まで）', async () => {
+		const { watcher, importSessionLogs } = setup();
+		importSessionLogs.execute.mockRejectedValue(new Error('SQLITE_BUSY'));
+
+		watcher.emit({ projectId: 'p1', path: '/l/p1/a.jsonl' });
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(importSessionLogs.execute).toHaveBeenCalledTimes(1);
+
+		for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(1000);
+
+		// 最初の 1 回 + 再試行 3 回
+		expect(importSessionLogs.execute).toHaveBeenCalledTimes(4);
+		expect(importSessionLogs.execute).toHaveBeenLastCalledWith(
+			expect.objectContaining({ projectIds: ['p1'] }),
+		);
+	});
 });
