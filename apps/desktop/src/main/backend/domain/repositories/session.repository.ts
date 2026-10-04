@@ -16,6 +16,15 @@ export type SessionFilter = {
 	query?: string;
 };
 
+export type SessionSortKey = 'startedAt' | 'project' | 'activeDuration' | 'totalTokens';
+
+export type SessionSearch = {
+	filter?: SessionFilter;
+	sort: { key: SessionSortKey; direction: 'asc' | 'desc' };
+	offset: number;
+	limit: number;
+};
+
 export type SessionWithProject = {
 	session: Session;
 	project: Project;
@@ -30,4 +39,6 @@ export interface SessionRepository {
 	 * セッションの活動区間はすべて含む（期間外のものも含む）
 	 */
 	findByPeriod(period: Period, filter?: SessionFilter): SessionWithProject[];
+	/** 期間を問わず、絞り込み・並び替え・ページ分けして返す。total は絞り込み後の件数 */
+	search(search: SessionSearch): { items: SessionWithProject[]; total: number };
 }

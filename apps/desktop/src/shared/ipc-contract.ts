@@ -15,6 +15,8 @@ export const IPC_CHANNELS = {
 	getFilterOptions: 'filters:get-options',
 	/** renderer → main: 期間（週・月）の統計を取得する */
 	getDashboard: 'dashboard:get',
+	/** renderer → main: セッション一覧（絞り込み・並び替え・ページ分け）を取得する */
+	listSessions: 'sessions:list',
 	/** main → renderer: 取り込みでセッションが追加・更新された */
 	sessionsChanged: 'sessions:changed',
 } as const;
@@ -56,6 +58,38 @@ export type SessionFilterDto = {
 	tags?: string[];
 	/** 概要に含まれる文字列 */
 	query?: string;
+};
+
+export type SessionSortKeyDto = 'startedAt' | 'project' | 'activeDuration' | 'totalTokens';
+
+export type ListSessionsRequest = {
+	filter?: SessionFilterDto;
+	sort: { key: SessionSortKeyDto; direction: 'asc' | 'desc' };
+	/** 1 始まり */
+	page: number;
+	/** 1〜200 */
+	pageSize: number;
+};
+
+export type SessionListItemDto = {
+	id: string;
+	project: ProjectSummaryDto;
+	startedAt: IsoDateString;
+	endedAt: IsoDateString;
+	activeDurationMs: number;
+	status: SessionStatusDto;
+	totalTokens: number;
+	messageCount: number;
+	summary: string | null;
+	tags: string[];
+};
+
+export type SessionListDto = {
+	items: SessionListItemDto[];
+	/** 絞り込み後の件数 */
+	total: number;
+	page: number;
+	pageSize: number;
 };
 
 /** 期間の指定。`from` 以上 `to` 未満。最大 31 日 */
@@ -166,6 +200,7 @@ export type DesktopApi = {
 	updateSessionAnnotation(request: UpdateSessionAnnotationRequest): Promise<void>;
 	getFilterOptions(): Promise<FilterOptionsDto>;
 	getDashboard(request: GetDashboardRequest): Promise<DashboardDto>;
+	listSessions(request: ListSessionsRequest): Promise<SessionListDto>;
 	/** セッションの変更を購読する。戻り値の関数で購読を解除する */
 	onSessionsChanged(listener: (payload: SessionsChangedPayload) => void): () => void;
 };

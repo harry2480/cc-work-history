@@ -39,6 +39,9 @@ class InMemorySessionRepository implements SessionRepository {
 	findByPeriod(): never {
 		throw new Error('not used');
 	}
+	search(): never {
+		throw new Error('not used');
+	}
 }
 
 class InMemorySessionLogFileRepository implements SessionLogFileRepository {
