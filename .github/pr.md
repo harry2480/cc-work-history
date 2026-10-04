@@ -23,8 +23,8 @@ description: フィーチャーブランチを作成してPRを出す
    目的が明確でない場合は、必ずユーザーに質問して確認を取ること。PRのdescriptionに目的として記載する。
 
 3. **ブランチ決定**:
-   - 現在のブランチがdevelopやmainの場合: 変更内容に基づいて適切なブランチ名を自分で決定し、新しいブランチを作成してチェックアウトする（例: `feature/add-dark-mode`, `fix/login-error`, `refactor/auth-logic`）
-   - 既にフィーチャーブランチにいる場合: 変更内容がブランチ名と合致していればそのまま使用する。合致していない場合はdevelopから新しいブランチを作成して変更を持ち越す
+   - 現在のブランチがmainの場合: 変更内容に基づいて適切なブランチ名を自分で決定し、新しいブランチを作成してチェックアウトする（例: `feature/add-dark-mode`, `fix/login-error`, `refactor/auth-logic`）
+   - 既にフィーチャーブランチにいる場合: 変更内容がブランチ名と合致していればそのまま使用する。合致していない場合はmainから新しいブランチを作成して変更を持ち越す
 
 4. **品質チェック**: ソースコード（`.ts`、`.tsx`、`.js`、`.jsx`ファイル）への変更がある場合のみ、プロジェクトルートで以下を実行する。ドキュメントや設定ファイルのみの変更の場合はスキップ可。
    - `npm run typecheck`
@@ -35,7 +35,7 @@ description: フィーチャーブランチを作成してPRを出す
 
 5. **コミット**: 変更内容を確認し、適切なコミットメッセージでコミットする。コミットメッセージは変更内容を反映した簡潔なものにする。
 
-6. **コンフリクト確認**: `git fetch origin` して、developとのマージ可能性を確認する（`bash -c 'git merge-tree $(git merge-base HEAD origin/develop) HEAD origin/develop'` でコンフリクトの有無を確認）。コンフリクトがある場合はユーザーに報告し、続行するか確認を取る。
+6. **コンフリクト確認**: `git fetch origin` して、mainとのマージ可能性を確認する（`bash -c 'git merge-tree $(git merge-base HEAD origin/main) HEAD origin/main'` でコンフリクトの有無を確認）。コンフリクトがある場合はユーザーに報告し、続行するか確認を取る。
 
 7. **プッシュ**: リモートにプッシュする（`git push -u origin <branch-name>`）
 
@@ -45,7 +45,7 @@ description: フィーチャーブランチを作成してPRを出す
 
 ## 注意事項
 
-- developやmainへの直接pushは禁止。
+- mainへの直接pushは禁止。
 - Prismaのマイグレーションを含む場合は、PRを出す前にユーザーに確認を取る。
 
 - プルリクエストは [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) のテンプレート形式に従って作成してください。

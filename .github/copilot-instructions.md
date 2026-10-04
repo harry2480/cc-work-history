@@ -8,7 +8,6 @@
 
 - **PR作成して** – PR作成チェックリストとコマンドを開始する。
 - **UIデバッグして** – Chrome DevTools MCP のデバッグ手順を開始する。
-- **デプロイして** – `develop` から `main` へのデプロイ手順を実行する。
 - **曖昧点質問して** – 計画用の `AskUserQuestion` ワークフローを起動する。
 - **リファクタしてください** – ブランチのリファクタリングガイダンスを実行する。
 - **レビューして** – PRレビュー用テンプレートに従ってレビューを行う。
@@ -27,7 +26,7 @@ $ARGUMENTS
 
 ## タスク
 
-現在の変更から新しいブランチを作成し、develop ブランチに対してPRを作成します。
+現在の変更から新しいブランチを作成し、main ブランチに対してPRを作成します。
 
 ### 0. リモート環境の検出
 
@@ -70,21 +69,21 @@ echo "✓ ${TARGET_REMOTE} リモートへの接続確認完了"
 ### 1. 事前確認
 
 ```bash
-# 最新のdevelopをfetch
-git fetch ${TARGET_REMOTE} develop
+# 最新のmainをfetch
+git fetch ${TARGET_REMOTE} main
 
 # 現在のブランチ名とワーキングツリーの状態を確認
 git branch --show-current
 git status
 
-# ${TARGET_REMOTE}/developとの差分コミットを確認
-git log ${TARGET_REMOTE}/develop..HEAD --oneline
+# ${TARGET_REMOTE}/mainとの差分コミットを確認
+git log ${TARGET_REMOTE}/main..HEAD --oneline
 ```
 
 ### 1.1 マージ済みブランチの扱い（マージコミット運用）
 
 このリポジトリは **マージコミット運用** のため、マージ済みブランチの使い回しは行わない。
-次の作業は **必ず最新の develop から新規ブランチを作成** する。
+次の作業は **必ず最新の main から新規ブランチを作成** する。
 
 現在のブランチに新しい変更がある場合は、以下で新規ブランチへ移す：
 
@@ -92,21 +91,21 @@ git log ${TARGET_REMOTE}/develop..HEAD --oneline
 # 未コミットの変更がある場合（stash禁止のため一時コミットで移す）
 git add -A
 git commit -m "wip: temporary"
-git checkout develop
-git pull --rebase ${TARGET_REMOTE} develop
+git checkout main
+git pull --rebase ${TARGET_REMOTE} main
 git checkout -b <新しいブランチ名>
 git cherry-pick <wipコミット>
 
 # すでにコミットがある場合
-git checkout develop
-git pull --rebase ${TARGET_REMOTE} develop
+git checkout main
+git pull --rebase ${TARGET_REMOTE} main
 git checkout -b <新しいブランチ名>
 git cherry-pick <コミット範囲>
 ```
 
 ### 2. 新しいブランチの作成（必要な場合）
 
-現在のブランチが `develop` または `main` の場合のみ、新しいブランチを作成：
+現在のブランチが `main` または `main` の場合のみ、新しいブランチを作成：
 
 差分コミットの内容を分析し、適切なブランチ名を生成する：
 - `fix/xxx` - バグ修正
@@ -120,13 +119,13 @@ git checkout -b <新しいブランチ名>
 
 既にfeatureブランチにいる場合はブランチ作成をスキップ。
 
-> 重要: `develop` / `main` 上でコミットしないこと。
+> 重要: `main` 上でコミットしないこと。
 > 未コミットの変更がある場合は **ブランチ作成を先に行う**。
 
-もし `develop` / `main` で **未コミットの変更が無い** 場合は、先に最新化してからブランチを作成する：
+もし `main` で **未コミットの変更が無い** 場合は、先に最新化してからブランチを作成する：
 
 ```bash
-git pull --rebase ${TARGET_REMOTE} <develop または main>
+git pull --rebase ${TARGET_REMOTE} main
 git checkout -b <新しいブランチ名>
 ```
 
@@ -158,22 +157,22 @@ git status
 git diff --stat
 ```
 
-### 4. 最新のdevelopにrebase
+### 4. 最新のmainにrebase
 
 ```bash
-git rebase ${TARGET_REMOTE}/develop
+git rebase ${TARGET_REMOTE}/main
 ```
 
 ### 5. 差分の確認
 
-${TARGET_REMOTE}/develop との差分を確認：
+${TARGET_REMOTE}/main との差分を確認：
 
 ```bash
 # コミット一覧
-git log ${TARGET_REMOTE}/develop..HEAD --oneline
+git log ${TARGET_REMOTE}/main..HEAD --oneline
 
 # 変更ファイルの統計
-git diff ${TARGET_REMOTE}/develop...HEAD --stat
+git diff ${TARGET_REMOTE}/main...HEAD --stat
 ```
 
 差分コミットが 0 件の場合は PR 作成を中止する。
@@ -220,7 +219,7 @@ else
   REPO_OPTION=""
 fi
 
-gh pr create ${REPO_OPTION} --base develop --title "<タイトル>" --body "$(cat <<'EOF'
+gh pr create ${REPO_OPTION} --base main --title "<タイトル>" --body "$(cat <<'EOF'
 <テンプレートに従った本文>
 EOF
 )"
@@ -236,8 +235,8 @@ gh pr diff <PR番号> --name-only
 ```
 
 - 今回の作業で変更したファイル以外が含まれていないか確認する
-- 余分な変更がある場合は、ブランチの起点が `develop` でない可能性が高い
-  - `git rebase --onto develop <元のブランチ> <現在のブランチ>` で修正し、force push する
+- 余分な変更がある場合は、ブランチの起点が `main` でない可能性が高い
+  - `git rebase --onto main <元のブランチ> <現在のブランチ>` で修正し、force push する
 - 問題がなければ次のステップへ進む
 
 ### 8. 完了報告
@@ -408,78 +407,6 @@ mcp__chrome-devtools__take_screenshot({ filePath: "./screenshot-fixed.png" })
 
 ### 確認
 <スクリーンショットまたは確認結果>
-```
-
-
----
-description: "developからmainへのデプロイPRを作成・マージする"
----
-
-## タスク
-
-develop ブランチから main ブランチへのデプロイPRを作成し、確認後にマージします。
-
-### 1. 事前確認
-
-```bash
-# 最新の状態をfetch
-git fetch origin develop main
-
-# develop と main の差分コミットを確認
-git log origin/main..origin/develop --oneline
-```
-
-差分コミットがない場合は「デプロイする変更がありません」と報告して終了。
-
-### 2. 差分の詳細表示
-
-```bash
-# コミット一覧（詳細）
-git log origin/main..origin/develop --pretty=format:"- %h %s (%an)"
-
-# 変更ファイルの統計
-git diff origin/main...origin/develop --stat
-```
-
-差分の内容をユーザーに報告：
-- コミット数
-- 変更ファイル数
-- 主な変更内容の要約
-
-### 3. デプロイPRの作成
-
-PRタイトルは「本番デプロイ MM/DD HH:MM」の形式（現在日時を使用）。
-
-```bash
-gh pr create \
-  --base main \
-  --head develop \
-  --title "本番デプロイ $(date '+%m/%d %H:%M')" \
-  --body "$(cat <<'EOF'
-## デプロイ内容
-
-<コミット一覧を箇条書きで記載>
-
-## 変更ファイル数
-
-<変更ファイル数を記載>
-EOF
-)"
-```
-
-PRのURLを表示。
-
-### 4. マージ実行
-
-```bash
-# 通常マージ（admin権限でマージコミット作成）
-gh pr merge --merge --admin
-```
-
-### 5. 完了報告
-
-```
-✅ デプロイ完了: main ブランチにマージされました
 ```
 
 

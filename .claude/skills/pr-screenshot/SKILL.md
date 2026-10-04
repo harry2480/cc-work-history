@@ -43,7 +43,7 @@ SCREENSHOT_DIR=/tmp/pr-screenshots
 ```bash
 git branch --show-current
 gh pr list --head "$(git branch --show-current)" --json number --jq '.[0].number'
-git diff --name-only develop...HEAD
+git diff --name-only main...HEAD
 ```
 
 変更されたファイルパスから、影響を受けるUI画面を推定する:

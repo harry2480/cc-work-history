@@ -1,7 +1,7 @@
 # Codecov 設定（テンプレート）
 # 詳細: https://docs.codecov.com/docs/codecov-yaml
 codecov:
-  branch: develop
+  branch: main
 
 coverage:
   status:
