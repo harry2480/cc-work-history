@@ -26,23 +26,12 @@ ignore:
   - "apps/desktop/src/main/index.ts"
   - "apps/desktop/src/preload/index.ts"
   - "apps/desktop/src/renderer/main.tsx"
-  - "apps/webapp/test/**"
-  - "apps/webapp/prisma/**"
-  - "apps/webapp/*.config.*"
-  - "apps/webapp/src/app/**/page.tsx"
-  - "apps/webapp/src/app/**/layout.tsx"
-  - "apps/webapp/src/app/**/loading.tsx"
-  - "apps/webapp/src/app/**/not-found.tsx"
-  - "apps/webapp/src/app/**/error.tsx"
 
 # アプリごとのフラグ（coverage.yml のアップロードと対応）
 flags:
   desktop:
     paths:
       - apps/desktop/
-  webapp:
-    paths:
-      - apps/webapp/
 
 # PR にカバレッジコメントを投稿
 comment:

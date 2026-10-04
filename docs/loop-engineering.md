@@ -83,6 +83,6 @@ PRは専用feature branchから作り、`main` に直接commit/pushしません�
 
 GitHub Actions上で専用のテスト用リポジトリを使い、信頼できる作成者のready IssueからPR作成、CI失敗修正、品質ゲート通過、squash自動マージまでを確認します。外部ユーザーのIssueにreadyを付けた場合は自動処理されずhumanへ移ること、CIや外部サービスが失敗した場合にLoopが停止すること、通常PRと手動レビューが維持されることも確認してください。
 
-CIでは使い捨てのPostgreSQL 16を起動し、migration適用後に `pnpm verify` と `pnpm build` を実行します。ローカルでビルドまで確認する場合は、破棄可能なDBを用意して `DATABASE_URL` と `DIRECT_URL` を設定してください。このテンプレートにはE2Eテスト環境がまだないため、`/init-pj` で対象プロジェクトのE2E構成を確認し、存在する場合だけ同じ集約checkに追加します。
+CIでは `pnpm verify`、`pnpm test:integration`、`pnpm build` を実行します。DBはアプリ内のSQLiteで、Integrationテストは一時ディレクトリに作ったDBを使うため、外部のDBサーバーは不要です。このテンプレートにはE2Eテスト環境がまだないため、`/init-pj` で対象プロジェクトのE2E構成を確認し、存在する場合だけ同じ集約checkに追加します。
 
 ローカルではshell構文、workflow構文、Issue templateを検証し、`pnpm verify` を実行します。GitHubのbranch protection、自動マージ、Issue作成からマージまでの一連の動作は外部設定に依存し、ローカル検証だけでは証明できません。

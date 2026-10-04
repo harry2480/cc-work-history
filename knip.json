@@ -1,10 +1,6 @@
 {
 	"$schema": "https://unpkg.com/knip@5/schema.json",
 	"workspaces": {
-		"apps/webapp": {
-			"ignoreDependencies": ["postcss", "postcss-load-config"],
-			"ignore": ["src/frontend/components/ui/**"]
-		},
 		"apps/desktop": {
 			"entry": [
 				"electron.vite.config.ts",

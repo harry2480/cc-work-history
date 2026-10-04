@@ -2,8 +2,6 @@
 
 Claude Code のローカルセッションログを解析し、作業履歴をカレンダー／タイムラインで可視化する Electron デスクトップアプリ。要件は [docs/要件定義.md](docs/要件定義.md)。
 
-> **移行中**: コードはまだスターターテンプレート（Next.js 15 + Prisma / `apps/webapp/`）のまま。以下は移行後の Electron 構成（`apps/desktop/`）のルール。移行は [docs/実装計画.md](docs/実装計画.md) の Phase 0 で行う。Phase 0 が終わるまで、既存の `apps/webapp/` を触る作業ではそのコードの規約に従う。
-
 ## 使い方（利用者向け）
 
 - `pnpm dev` で開発サーバーを起動

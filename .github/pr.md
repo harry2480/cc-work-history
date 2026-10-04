@@ -46,6 +46,6 @@ description: フィーチャーブランチを作成してPRを出す
 ## 注意事項
 
 - mainへの直接pushは禁止。
-- Prismaのマイグレーションを含む場合は、PRを出す前にユーザーに確認を取る。
+- DBマイグレーション（`apps/desktop/src/main/backend/infrastructure/db/migrations/`）を含む場合は、PRを出す前にユーザーに確認を取る。
 
 - プルリクエストは [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) のテンプレート形式に従って作成してください。

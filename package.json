@@ -3,20 +3,17 @@
 	"private": true,
 	"packageManager": "pnpm@10.18.1",
 	"scripts": {
-		"dev": "pnpm --filter webapp dev",
-		"build": "pnpm --filter webapp build",
+		"dev": "pnpm --filter desktop dev",
+		"build": "pnpm --filter desktop build",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
-		"typecheck": "pnpm --filter webapp typecheck",
-		"verify": "pnpm lint && pnpm --filter webapp prisma generate && pnpm typecheck && pnpm test:unit && pnpm depcruise",
-		"test:unit": "pnpm --filter webapp test:unit",
+		"typecheck": "pnpm --filter desktop typecheck",
+		"verify": "pnpm lint && pnpm typecheck && pnpm test:unit && pnpm depcruise",
+		"test:unit": "pnpm --filter desktop test:unit",
 		"test:coverage": "pnpm -r --if-present test:coverage",
-		"test:integration": "pnpm --filter webapp test:integration",
-		"depcruise": "pnpm --filter webapp depcruise",
+		"test:integration": "pnpm --filter desktop test:integration",
+		"depcruise": "pnpm --filter desktop depcruise",
 		"knip": "knip",
-		"db:seed": "pnpm --filter webapp prisma db seed",
-		"db:reset": "pnpm --filter webapp prisma migrate reset",
-		"db:migrate": "pnpm --filter webapp prisma migrate dev",
 		"merge": "bash scripts/merge-pr.sh",
 		"prepare": "simple-git-hooks"
 	},
@@ -30,14 +27,6 @@
 		"simple-git-hooks": "^2.14.0"
 	},
 	"pnpm": {
-		"onlyBuiltDependencies": [
-			"@biomejs/biome",
-			"@prisma/client",
-			"@prisma/engines",
-			"esbuild",
-			"prisma",
-			"sharp",
-			"simple-git-hooks"
-		]
+		"onlyBuiltDependencies": ["@biomejs/biome", "esbuild", "simple-git-hooks"]
 	}
 }
