@@ -5,6 +5,8 @@ import type {
 	Period,
 	SessionFilter,
 	SessionRepository,
+	SessionSearch,
+	SessionSortKey,
 	SessionWithProject,
 } from '../../domain/repositories/session.repository';
 import { type ProjectRow, SqliteProjectRepository } from './sqlite-project.repository';
@@ -32,6 +34,15 @@ type ActivityRow = {
 type SessionWithProjectRow = SessionRow & {
 	project_path: string;
 	project_last_activity_at: number;
+};
+
+/** 並び替えの列（固定の候補だけを SQL に埋め込む） */
+const SORT_COLUMNS: Record<SessionSortKey, string> = {
+	startedAt: 's.started_at',
+	project: 'p.path COLLATE NOCASE',
+	activeDuration:
+		'(SELECT COALESCE(SUM(a.ended_at - a.started_at), 0) FROM activities a WHERE a.session_id = s.id)',
+	totalTokens: '(s.input_tokens + s.output_tokens)',
 };
 
 const SELECT_SESSION_WITH_PROJECT = `
@@ -93,16 +104,63 @@ export class SqliteSessionRepository implements SessionRepository {
 	}
 
 	findByPeriod(period: Period, filter: SessionFilter = {}): SessionWithProject[] {
+		const params: Record<string, string | number> = {
+			from: period.from.getTime(),
+			to: period.to.getTime(),
+		};
 		const conditions = [
 			`EXISTS (
 				SELECT 1 FROM activities a
 				WHERE a.session_id = s.id AND a.started_at < @to AND a.ended_at >= @from
 			)`,
+			...this.filterConditions(filter, params),
 		];
-		const params: Record<string, string | number> = {
-			from: period.from.getTime(),
-			to: period.to.getTime(),
-		};
+
+		const rows = this.db
+			.prepare<[Record<string, string | number>], SessionWithProjectRow>(
+				`${SELECT_SESSION_WITH_PROJECT}
+				WHERE ${conditions.join(' AND ')}
+				ORDER BY s.started_at, s.id`,
+			)
+			.all(params);
+
+		const activityRows = this.findActivityRows(rows.map((row) => row.id));
+		return rows.map((row) => this.toSessionWithProject(row, activityRows));
+	}
+
+	search({ filter = {}, sort, offset, limit }: SessionSearch): {
+		items: SessionWithProject[];
+		total: number;
+	} {
+		const params: Record<string, string | number> = { offset, limit };
+		const conditions = this.filterConditions(filter, params);
+		const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+		const direction = sort.direction === 'asc' ? 'ASC' : 'DESC';
+
+		const { total } = this.db
+			.prepare<[Record<string, string | number>], { total: number }>(
+				`SELECT COUNT(*) AS total FROM sessions s ${where}`,
+			)
+			.get(params) ?? { total: 0 };
+		const rows = this.db
+			.prepare<[Record<string, string | number>], SessionWithProjectRow>(
+				`${SELECT_SESSION_WITH_PROJECT}
+				${where}
+				ORDER BY ${SORT_COLUMNS[sort.key]} ${direction}, s.started_at DESC, s.id
+				LIMIT @limit OFFSET @offset`,
+			)
+			.all(params);
+
+		const activityRows = this.findActivityRows(rows.map((row) => row.id));
+		return { items: rows.map((row) => this.toSessionWithProject(row, activityRows)), total };
+	}
+
+	/** 絞り込み条件の SQL（params に値を追加する） */
+	private filterConditions(
+		filter: SessionFilter,
+		params: Record<string, string | number>,
+	): string[] {
+		const conditions: string[] = [];
 		if (filter.projectIds && filter.projectIds.length > 0) {
 			conditions.push('s.project_id IN (SELECT value FROM json_each(@projectIds))');
 			params.projectIds = JSON.stringify(filter.projectIds);
@@ -120,17 +178,7 @@ export class SqliteSessionRepository implements SessionRepository {
 			conditions.push("s.summary LIKE @query ESCAPE '\\'");
 			params.query = `%${query.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
 		}
-
-		const rows = this.db
-			.prepare<[Record<string, string | number>], SessionWithProjectRow>(
-				`${SELECT_SESSION_WITH_PROJECT}
-				WHERE ${conditions.join(' AND ')}
-				ORDER BY s.started_at, s.id`,
-			)
-			.all(params);
-
-		const activityRows = this.findActivityRows(rows.map((row) => row.id));
-		return rows.map((row) => this.toSessionWithProject(row, activityRows));
+		return conditions;
 	}
 
 	private findActivityRows(sessionIds: readonly string[]): Map<string, ActivityRow[]> {

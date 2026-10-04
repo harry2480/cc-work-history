@@ -77,7 +77,7 @@ export function loadFilterOptions(useCase: GetFilterOptionsUseCase): FilterOptio
 	return useCase.execute();
 }
 
-type TimelineFilter = { projectIds?: string[]; tags?: string[]; query?: string };
+export type TimelineFilter = { projectIds?: string[]; tags?: string[]; query?: string };
 
 function parseTimelineRequest(request: unknown): { from: Date; to: Date; filter: TimelineFilter } {
 	const { from, to } = parsePeriodRequest(request);
@@ -96,7 +96,7 @@ export function parsePeriodRequest(request: unknown): { from: Date; to: Date } {
 	return { from, to };
 }
 
-function parseFilter(value: unknown): TimelineFilter {
+export function parseFilter(value: unknown): TimelineFilter {
 	if (value === undefined) return {};
 	if (!isObject(value)) throw new InvalidIpcRequestError('絞り込み条件が不正です');
 	const filter: TimelineFilter = {};

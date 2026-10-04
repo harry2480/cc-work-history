@@ -56,3 +56,17 @@ export function formatDuration(ms: number): string {
 	if (hours === 0) return `${minutes}分`;
 	return minutes === 0 ? `${hours}時間` : `${hours}時間 ${minutes}分`;
 }
+
+const shortDateTimeFormat = new Intl.DateTimeFormat('ja-JP', {
+	month: 'numeric',
+	day: 'numeric',
+	weekday: 'short',
+	hour: '2-digit',
+	minute: '2-digit',
+});
+
+/** 表など狭い場所用。例: 9/19(土) 22:24（今年でなければ先頭に年を付ける） */
+export function formatShortDateTime(date: Date, now = new Date()): string {
+	const text = shortDateTimeFormat.format(date);
+	return date.getFullYear() === now.getFullYear() ? text : `${date.getFullYear()}/${text}`;
+}
