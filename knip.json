@@ -4,6 +4,16 @@
 		"apps/webapp": {
 			"ignoreDependencies": ["postcss", "postcss-load-config"],
 			"ignore": ["src/frontend/components/ui/**"]
+		},
+		"apps/desktop": {
+			"entry": [
+				"electron.vite.config.ts",
+				"src/main/index.ts",
+				"src/preload/index.ts",
+				"src/renderer/main.tsx",
+				"src/renderer/types/*.d.ts"
+			],
+			"project": ["src/**/*.{ts,tsx}"]
 		}
 	}
 }
