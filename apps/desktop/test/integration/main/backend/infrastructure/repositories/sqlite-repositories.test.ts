@@ -196,26 +196,23 @@ describe('SqliteSessionRepository の作業状況チェックリスト', () => {
 		expect(statuses(sessions.findById('s1')?.session)).toEqual([]);
 	});
 
-	it('期間・検索での取得にも含め、セッションごとに分けて返す', () => {
+	it('セッションごとに分けて保存し、詳細で返す。期間・検索の一覧では読まない', () => {
 		sessions.save(session('s1', [0], 'p1', [{ content: 'a', status: 'pending' }]));
 		sessions.save(session('s2', [60], 'p1', [{ content: 'b', status: 'completed' }]));
 		sessions.save(session('s3', [120]));
 
-		expect(sessions.findByPeriod(week).map(({ session: s }) => statuses(s))).toEqual([
+		expect(['s1', 's2', 's3'].map((id) => statuses(sessions.findById(id)?.session))).toEqual([
 			[['a', 'pending']],
 			[['b', 'completed']],
 			[],
 		]);
+		expect(sessions.findByPeriod(week).map(({ session: s }) => statuses(s))).toEqual([[], [], []]);
 		const { items } = sessions.search({
 			sort: { key: 'startedAt', direction: 'asc' },
 			offset: 0,
 			limit: 10,
 		});
-		expect(items.map(({ session: s }) => statuses(s))).toEqual([
-			[['a', 'pending']],
-			[['b', 'completed']],
-			[],
-		]);
+		expect(items.map(({ session: s }) => statuses(s))).toEqual([[], [], []]);
 	});
 
 	it('チェックリストの保存に失敗したら、セッションの更新も巻き戻る', () => {

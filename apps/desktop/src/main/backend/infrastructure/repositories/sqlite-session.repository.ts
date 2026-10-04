@@ -147,7 +147,8 @@ export class SqliteSessionRepository implements SessionRepository {
 
 		const ids = rows.map((row) => row.id);
 		const activityRows = this.findActivityRows(ids);
-		const todoRows = this.findTodoRows(ids);
+		// チェックリストは詳細（findById）でしか使わないので、一覧では読まない
+		const todoRows = new Map<string, SessionTodoRow[]>();
 		return rows.map((row) => this.toSessionWithProject(row, activityRows, todoRows));
 	}
 
@@ -176,7 +177,8 @@ export class SqliteSessionRepository implements SessionRepository {
 
 		const ids = rows.map((row) => row.id);
 		const activityRows = this.findActivityRows(ids);
-		const todoRows = this.findTodoRows(ids);
+		// チェックリストは詳細（findById）でしか使わないので、一覧では読まない
+		const todoRows = new Map<string, SessionTodoRow[]>();
 		return {
 			items: rows.map((row) => this.toSessionWithProject(row, activityRows, todoRows)),
 			total,
