@@ -57,6 +57,9 @@ const SELECT_SESSION_WITH_PROJECT = `
 	SELECT s.*, p.path AS project_path, p.last_activity_at AS project_last_activity_at
 	FROM sessions s JOIN projects p ON p.id = s.project_id`;
 
+/** 非表示のプロジェクトのセッションを除く条件（sessions を s として参照する） */
+const EXCLUDE_HIDDEN_PROJECTS = 's.project_id NOT IN (SELECT id FROM projects WHERE hidden = 1)';
+
 export class SqliteSessionRepository implements SessionRepository {
 	constructor(private readonly db: Database.Database) {}
 
@@ -185,12 +188,12 @@ export class SqliteSessionRepository implements SessionRepository {
 		};
 	}
 
-	/** 絞り込み条件の SQL（params に値を追加する） */
+	/** 絞り込み条件の SQL（params に値を追加する）。非表示のプロジェクトは常に除く */
 	private filterConditions(
 		filter: SessionFilter,
 		params: Record<string, string | number>,
 	): string[] {
-		const conditions: string[] = [];
+		const conditions: string[] = [EXCLUDE_HIDDEN_PROJECTS];
 		if (filter.projectIds && filter.projectIds.length > 0) {
 			conditions.push('s.project_id IN (SELECT value FROM json_each(@projectIds))');
 			params.projectIds = JSON.stringify(filter.projectIds);

@@ -29,6 +29,10 @@ export const IPC_CHANNELS = {
 	generateSessionSummary: 'sessions:generate-summary',
 	/** renderer → main: セッションの会話（ユーザーとアシスタントの発言）をログから取得する */
 	getSessionConversation: 'sessions:get-conversation',
+	/** renderer → main: すべてのプロジェクトと、非表示にしているかを取得する */
+	getProjectVisibility: 'projects:get-visibility',
+	/** renderer → main: プロジェクトを非表示にする・表示に戻す */
+	updateProjectVisibility: 'projects:update-visibility',
 	/** main → renderer: 取り込みでセッションが追加・更新された */
 	sessionsChanged: 'sessions:changed',
 } as const;
@@ -287,6 +291,17 @@ export type SessionConversationDto =
 	/** ログファイルが見つからない */
 	| { status: 'missing' };
 
+/** 設定画面のプロジェクト一覧（最終活動日時の新しい順） */
+export type ProjectVisibilityDto = ProjectSummaryDto & {
+	/** タイムライン・一覧・ダッシュボード・絞り込みの選択肢に出さない */
+	hidden: boolean;
+};
+
+export type UpdateProjectVisibilityRequest = {
+	projectId: string;
+	hidden: boolean;
+};
+
 /** preload が `window.api` として renderer に公開する API */
 export type DesktopApi = {
 	ping(): Promise<PingResult>;
@@ -308,6 +323,8 @@ export type DesktopApi = {
 	getSessionConversation(
 		request: GetSessionConversationRequest,
 	): Promise<SessionConversationDto | null>;
+	getProjectVisibility(): Promise<ProjectVisibilityDto[]>;
+	updateProjectVisibility(request: UpdateProjectVisibilityRequest): Promise<void>;
 	/** セッションの変更を購読する。戻り値の関数で購読を解除する */
 	onSessionsChanged(listener: (payload: SessionsChangedPayload) => void): () => void;
 };

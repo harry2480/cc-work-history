@@ -36,9 +36,9 @@ export interface SessionRepository {
 	findById(id: string): SessionWithProject | null;
 	/**
 	 * 期間に重なる活動区間を 1 つ以上持つセッションを、プロジェクトと一緒に開始時刻順で返す。
-	 * セッションの活動区間はすべて含む（期間外のものも含む）
+	 * セッションの活動区間はすべて含む（期間外のものも含む）。非表示のプロジェクトのセッションは含めない
 	 */
 	findByPeriod(period: Period, filter?: SessionFilter): SessionWithProject[];
-	/** 期間を問わず、絞り込み・並び替え・ページ分けして返す。total は絞り込み後の件数 */
+	/** 期間を問わず、絞り込み・並び替え・ページ分けして返す。total は絞り込み後の件数。非表示のプロジェクトのセッションは含めない */
 	search(search: SessionSearch): { items: SessionWithProject[]; total: number };
 }

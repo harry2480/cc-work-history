@@ -6,12 +6,14 @@ import type {
 } from '../../domain/repositories/activity-stats.repository';
 import type { Period } from '../../domain/repositories/session.repository';
 
-/** 期間に重なる活動区間（期間内に切り詰めた長さ付き） */
+/** 期間に重なる活動区間（期間内に切り詰めた長さ付き）。非表示のプロジェクトは除く */
 const CLIPPED_ACTIVITIES = `
 	SELECT a.session_id,
 		MAX(0, MIN(a.ended_at, @to) - MAX(a.started_at, @from)) AS active_ms
 	FROM activities a
-	WHERE a.started_at < @to AND a.ended_at >= @from`;
+	JOIN sessions hs ON hs.id = a.session_id
+	JOIN projects hp ON hp.id = hs.project_id
+	WHERE a.started_at < @to AND a.ended_at >= @from AND hp.hidden = 0`;
 
 type StatsRow = {
 	active_ms: number | null;

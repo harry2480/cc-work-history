@@ -57,6 +57,8 @@ beforeEach(() => {
 		getSessionResult: vi.fn(async () => null),
 		generateSessionSummary: vi.fn(),
 		getSessionConversation: vi.fn(),
+		getProjectVisibility: vi.fn(async () => []),
+		updateProjectVisibility: vi.fn(),
 		onSessionsChanged: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);
