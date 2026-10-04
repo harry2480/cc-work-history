@@ -80,10 +80,11 @@ export function useTimelineZoom({ scrollRef, labelWidth }: Options) {
 		return () => el.removeEventListener('wheel', onWheel);
 	}, [scrollRef, changeZoom]);
 
-	// キーボード（入力欄にいるときは使わない）
+	// キーボード（入力欄にいるとき・ダイアログを開いているときは使わない）
 	useEffect(() => {
 		const onKeyDown = (event: KeyboardEvent) => {
 			if (event.ctrlKey || event.metaKey || event.altKey || isEditable(event.target)) return;
+			if (event.target instanceof Element && event.target.closest('[role="dialog"]')) return;
 			const current = useTimelineStore.getState().zoom;
 			if (event.key === '+' || event.key === '=') changeZoom(zoomIn(current));
 			else if (event.key === '-') changeZoom(zoomOut(current));

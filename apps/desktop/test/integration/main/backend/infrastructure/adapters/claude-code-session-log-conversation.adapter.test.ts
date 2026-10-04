@@ -42,6 +42,19 @@ async function readConversation(records: unknown[]) {
 }
 
 describe('ClaudeCodeSessionLogAdapter.readConversation', () => {
+	it('一覧を取ったあとにファイルが消えていたら null', async () => {
+		const adapter = new ClaudeCodeSessionLogAdapter(dir);
+		expect(
+			await adapter.readConversation({
+				projectId: 'p',
+				sessionId: SESSION_ID,
+				path: join(dir, 'p', `${SESSION_ID}.jsonl`),
+				modifiedAt: new Date(0),
+				sizeBytes: 0,
+			}),
+		).toBeNull();
+	});
+
 	it('ユーザーとアシスタントの発言のテキストだけを時系列で取り出す', async () => {
 		const messages = await readConversation([
 			user('README の誤字を直して'),

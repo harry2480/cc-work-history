@@ -56,7 +56,8 @@ export class GenerateSessionSummaryUseCase {
 			(f) => f.sessionId === sessionId,
 		);
 		if (!file) return { status: 'empty' };
-		const conversation = toConversationText(await this.sessionLogGateway.readConversation(file));
+		const messages = await this.sessionLogGateway.readConversation(file);
+		const conversation = messages ? toConversationText(messages) : '';
 		if (!conversation) return { status: 'empty' };
 
 		const result = await this.summaryGenerator.generate({

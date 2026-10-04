@@ -17,6 +17,8 @@ const api: DesktopApi = {
 	getSessionResult: (request) => ipcRenderer.invoke(IPC_CHANNELS.getSessionResult, request),
 	generateSessionSummary: (request) =>
 		ipcRenderer.invoke(IPC_CHANNELS.generateSessionSummary, request),
+	getSessionConversation: (request) =>
+		ipcRenderer.invoke(IPC_CHANNELS.getSessionConversation, request),
 	onSessionsChanged: (listener) => {
 		const handler = (_event: IpcRendererEvent, payload: SessionsChangedPayload) =>
 			listener(payload);

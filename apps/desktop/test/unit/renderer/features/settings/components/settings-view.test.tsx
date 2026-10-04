@@ -60,6 +60,7 @@ beforeEach(() => {
 		resumeSession: vi.fn(),
 		getSessionResult: vi.fn(async () => null),
 		generateSessionSummary: vi.fn(),
+		getSessionConversation: vi.fn(),
 		onSessionsChanged: () => () => {},
 	};
 });

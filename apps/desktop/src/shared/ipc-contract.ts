@@ -27,6 +27,8 @@ export const IPC_CHANNELS = {
 	getSessionResult: 'sessions:get-result',
 	/** renderer → main: セッションの概要とタグを Claude CLI で生成して保存する */
 	generateSessionSummary: 'sessions:generate-summary',
+	/** renderer → main: セッションの会話（ユーザーとアシスタントの発言）をログから取得する */
+	getSessionConversation: 'sessions:get-conversation',
 	/** main → renderer: 取り込みでセッションが追加・更新された */
 	sessionsChanged: 'sessions:changed',
 } as const;
@@ -265,6 +267,26 @@ export type GenerateSummaryResultDto =
 	| { status: 'unavailable'; reason: string }
 	| { status: 'failed'; reason: string };
 
+export type GetSessionConversationRequest = {
+	id: string;
+};
+
+export type ConversationMessageDto = {
+	role: 'user' | 'assistant';
+	text: string;
+};
+
+export type SessionConversationDto =
+	/** ツールの入出力・思考・メタ情報・サブエージェントの発言は含まない */
+	| {
+			status: 'ok';
+			messages: ConversationMessageDto[];
+			/** 古い発言を省いた、または長い発言を途中で切った */
+			truncated: boolean;
+	  }
+	/** ログファイルが見つからない */
+	| { status: 'missing' };
+
 /** preload が `window.api` として renderer に公開する API */
 export type DesktopApi = {
 	ping(): Promise<PingResult>;
@@ -282,6 +304,10 @@ export type DesktopApi = {
 	getSessionResult(request: GetSessionResultRequest): Promise<SessionResultDto | null>;
 	/** 概要とタグを生成し、保存が終わるまで待つ */
 	generateSessionSummary(request: GenerateSummaryRequest): Promise<GenerateSummaryResultDto>;
+	/** 見つからなければ null */
+	getSessionConversation(
+		request: GetSessionConversationRequest,
+	): Promise<SessionConversationDto | null>;
 	/** セッションの変更を購読する。戻り値の関数で購読を解除する */
 	onSessionsChanged(listener: (payload: SessionsChangedPayload) => void): () => void;
 };

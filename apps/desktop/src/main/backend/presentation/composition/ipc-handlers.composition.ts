@@ -5,6 +5,7 @@ import { GenerateSessionSummaryUseCase } from '../../application/usecases/genera
 import { GetAppSettingsUseCase } from '../../application/usecases/get-app-settings.usecase';
 import { GetDashboardUseCase } from '../../application/usecases/get-dashboard.usecase';
 import { GetFilterOptionsUseCase } from '../../application/usecases/get-filter-options.usecase';
+import { GetSessionConversationUseCase } from '../../application/usecases/get-session-conversation.usecase';
 import { GetSessionDetailUseCase } from '../../application/usecases/get-session-detail.usecase';
 import { GetSessionResultUseCase } from '../../application/usecases/get-session-result.usecase';
 import { GetTimelineUseCase } from '../../application/usecases/get-timeline.usecase';
@@ -24,6 +25,7 @@ import { resumeSession } from '../actions/session-resume.action';
 import { generateSessionSummary } from '../actions/session-summary.action';
 import { updateIdleThreshold } from '../actions/settings.action';
 import { loadDashboard } from '../loaders/dashboard.loader';
+import { loadSessionConversation } from '../loaders/session-conversation.loader';
 import { loadSessionList } from '../loaders/session-list.loader';
 import { loadSessionResult } from '../loaders/session-result.loader';
 import { type DataPaths, loadSettings } from '../loaders/settings.loader';
@@ -118,14 +120,22 @@ export function registerIpcHandlers(
 	ipcMain.handle(IPC_CHANNELS.getSessionResult, (_event, request: unknown) =>
 		loadSessionResult(getSessionResult, request, new Date()),
 	);
+	const sessionLogGateway = createSessionLogGateway();
 	const generateSummary = new GenerateSessionSummaryUseCase(
 		sessionRepository,
 		annotationRepository,
-		createSessionLogGateway(),
+		sessionLogGateway,
 		createSummaryGenerator(),
 	);
 	ipcMain.handle(IPC_CHANNELS.generateSessionSummary, (_event, request: unknown) =>
 		generateSessionSummary(generateSummary, request),
+	);
+	const getSessionConversation = new GetSessionConversationUseCase(
+		sessionRepository,
+		sessionLogGateway,
+	);
+	ipcMain.handle(IPC_CHANNELS.getSessionConversation, (_event, request: unknown) =>
+		loadSessionConversation(getSessionConversation, request),
 	);
 }
 

@@ -5,6 +5,7 @@ import type { SessionDetailDto } from '@shared/ipc-contract';
 import type { ReactNode } from 'react';
 import { useSessionDetail } from '../api/use-session-detail';
 import { AnnotationSection } from './annotation-section';
+import { ConversationDialog } from './conversation-dialog';
 import { CopyMarkdownButton } from './copy-markdown-button';
 import { ResumeSessionButton } from './resume-session-button';
 import { SessionResultSection } from './session-result-section';
@@ -59,6 +60,7 @@ function SessionDetail({ detail }: { detail: SessionDetailDto }) {
 				{/* セッションを切り替えたら、ボタンのお知らせを消す */}
 				<div key={detail.id} className="mt-3 flex flex-wrap items-start gap-2">
 					<ResumeSessionButton sessionId={detail.id} />
+					<ConversationDialog sessionId={detail.id} projectName={detail.project.name} />
 					<CopyMarkdownButton detail={detail} />
 				</div>
 			</header>
