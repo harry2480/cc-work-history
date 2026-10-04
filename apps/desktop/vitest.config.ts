@@ -2,6 +2,8 @@ import { resolve } from 'node:path';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+	// アプリ（@vitejs/plugin-react）と同じく、React の import なしで JSX を使う
+	esbuild: { jsx: 'automatic' },
 	test: {
 		passWithNoTests: true,
 		coverage: {
