@@ -1,9 +1,9 @@
 import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
-import { IPC_CHANNELS, type PingResult } from '../shared/ipc-contract';
 import { openAppDatabase } from './backend/presentation/composition/database.composition';
 import { createImportSessionLogsUseCase } from './backend/presentation/composition/import-session-logs.composition';
+import { registerIpcHandlers } from './backend/presentation/composition/ipc-handlers.composition';
 import { createWatchSessionLogsUseCase } from './backend/presentation/composition/watch-session-logs.composition';
 import { createSessionsChangedPublisher } from './backend/presentation/events/sessions-changed.event';
 
@@ -17,13 +17,6 @@ if (process.env.CC_WORK_HISTORY_USER_DATA_DIR) {
 
 let database: Database.Database | null = null;
 let watchSessionLogs: ReturnType<typeof createWatchSessionLogsUseCase> | null = null;
-
-function registerIpcHandlers(): void {
-	ipcMain.handle(
-		IPC_CHANNELS.ping,
-		(): PingResult => ({ message: 'pong', electronVersion: process.versions.electron }),
-	);
-}
 
 /**
  * ウィンドウの表示をブロックしないよう、起動後に非同期で取り込む。
@@ -86,7 +79,7 @@ app.whenReady().then(() => {
 		app.quit();
 		return;
 	}
-	registerIpcHandlers();
+	registerIpcHandlers(ipcMain, database);
 	createWindow();
 	void importAndWatchSessionLogs(database);
 

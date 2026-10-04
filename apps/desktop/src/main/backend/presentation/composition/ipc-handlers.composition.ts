@@ -1,0 +1,25 @@
+import type Database from 'better-sqlite3';
+import type { IpcMain } from 'electron';
+import { IPC_CHANNELS, type PingResult } from '../../../../shared/ipc-contract';
+import { GetSessionDetailUseCase } from '../../application/usecases/get-session-detail.usecase';
+import { GetTimelineUseCase } from '../../application/usecases/get-timeline.usecase';
+import { SqliteSessionRepository } from '../../infrastructure/repositories/sqlite-session.repository';
+import { loadSessionDetail, loadTimeline } from '../loaders/timeline.loader';
+
+/** renderer から呼ばれる IPC ハンドラ（loader / action）を登録する */
+export function registerIpcHandlers(ipcMain: IpcMain, db: Database.Database): void {
+	const sessionRepository = new SqliteSessionRepository(db);
+	const getTimeline = new GetTimelineUseCase(sessionRepository);
+	const getSessionDetail = new GetSessionDetailUseCase(sessionRepository);
+
+	ipcMain.handle(
+		IPC_CHANNELS.ping,
+		(): PingResult => ({ message: 'pong', electronVersion: process.versions.electron }),
+	);
+	ipcMain.handle(IPC_CHANNELS.getTimeline, (_event, request: unknown) =>
+		loadTimeline(getTimeline, request, new Date()),
+	);
+	ipcMain.handle(IPC_CHANNELS.getSessionDetail, (_event, request: unknown) =>
+		loadSessionDetail(getSessionDetail, request, new Date()),
+	);
+}
