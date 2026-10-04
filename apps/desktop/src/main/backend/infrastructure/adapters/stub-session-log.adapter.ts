@@ -1,10 +1,15 @@
-import type { SessionLogFile, SessionLogGateway } from '../../domain/gateways/session-log.gateway';
+import type {
+	ConversationMessage,
+	SessionLogFile,
+	SessionLogGateway,
+} from '../../domain/gateways/session-log.gateway';
 import type { SessionLogEntry } from '../../domain/models/session-log-entry.model';
 
 export type StubSession = {
 	projectId: string;
 	sessionId: string;
 	entries: SessionLogEntry[];
+	conversation?: ConversationMessage[];
 	modifiedAt?: Date;
 };
 
@@ -29,9 +34,16 @@ export class StubSessionLogAdapter implements SessionLogGateway {
 	}
 
 	async readEntries(file: SessionLogFile): Promise<SessionLogEntry[]> {
-		const session = this.sessions.find(
+		return [...(this.find(file)?.entries ?? [])];
+	}
+
+	async readConversation(file: SessionLogFile): Promise<ConversationMessage[]> {
+		return [...(this.find(file)?.conversation ?? [])];
+	}
+
+	private find(file: SessionLogFile): StubSession | undefined {
+		return this.sessions.find(
 			(s) => s.projectId === file.projectId && s.sessionId === file.sessionId,
 		);
-		return session ? [...session.entries] : [];
 	}
 }

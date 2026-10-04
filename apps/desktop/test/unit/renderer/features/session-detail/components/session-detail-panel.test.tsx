@@ -55,6 +55,7 @@ beforeEach(() => {
 		updateIdleThreshold: vi.fn(),
 		resumeSession: vi.fn(),
 		getSessionResult: vi.fn(async () => null),
+		generateSessionSummary: vi.fn(),
 		onSessionsChanged: (listener) => {
 			listeners.add(listener);
 			return () => listeners.delete(listener);

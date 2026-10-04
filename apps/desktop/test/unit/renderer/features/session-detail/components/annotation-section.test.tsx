@@ -113,4 +113,26 @@ describe('AnnotationSection', () => {
 		expect(update).not.toHaveBeenCalled();
 		expect(screen.getByText('README を直した')).toBeTruthy();
 	});
+
+	it('概要の生成中は、手動の編集を開けない', async () => {
+		let finish: () => void = () => {};
+		window.api = {
+			updateSessionAnnotation: vi.fn(),
+			generateSessionSummary: vi.fn(
+				() =>
+					new Promise((resolve) => {
+						finish = () => resolve({ status: 'ok' });
+					}),
+			),
+		} as unknown as DesktopApi;
+		render(<AnnotationSection detail={detail()} />);
+
+		fireEvent.click(screen.getByRole('button', { name: '概要を生成' }));
+		expect(screen.getByRole('button', { name: '編集' })).toHaveProperty('disabled', true);
+
+		finish();
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: '編集' })).toHaveProperty('disabled', false),
+		);
+	});
 });

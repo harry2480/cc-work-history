@@ -190,6 +190,7 @@ describe('ImportSessionLogsUseCase', () => {
 				if (file.sessionId === 'broken') throw new Error('EACCES');
 				return stub.readEntries(file);
 			},
+			readConversation: (file) => stub.readConversation(file),
 		};
 		const { repos, run } = setup([], gateway);
 

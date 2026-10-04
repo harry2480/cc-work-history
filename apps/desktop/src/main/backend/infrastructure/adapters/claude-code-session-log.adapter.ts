@@ -1,6 +1,10 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
-import type { SessionLogFile, SessionLogGateway } from '../../domain/gateways/session-log.gateway';
+import type {
+	ConversationMessage,
+	SessionLogFile,
+	SessionLogGateway,
+} from '../../domain/gateways/session-log.gateway';
 import type {
 	LoggedTodo,
 	LoggedTodoEvent,
@@ -72,6 +76,41 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 			if (entry) entries.push(entry);
 		}
 		return entries;
+	}
+
+	async readConversation(file: SessionLogFile): Promise<ConversationMessage[]> {
+		const content = await readFile(file.path, 'utf-8');
+		const messages: ConversationMessage[] = [];
+		// 同じ応答が内容ブロックごとに複数行に記録されるため、同じテキストは 1 回だけ使う
+		const seenAssistantTexts = new Set<string>();
+
+		for (const line of content.split('\n')) {
+			if (!line.trim()) continue;
+			let record: unknown;
+			try {
+				record = JSON.parse(line);
+			} catch {
+				continue;
+			}
+			if (!isObject(record) || !isConversationRecord(record)) continue;
+			const message = isObject(record.message) ? record.message : {};
+			// ツールの結果（tool_result）や思考（thinking）などのブロックは含めない
+			const raw = conversationTextOf(message.content);
+
+			if (record.type === 'user') {
+				const text = stripCommandTags(raw).trim();
+				if (!text || text.startsWith(INTERRUPTED_PREFIX)) continue;
+				messages.push({ role: 'user', text });
+			} else {
+				const text = raw.trim();
+				if (!text) continue;
+				const key = `${typeof message.id === 'string' ? message.id : ''}\u0000${text}`;
+				if (seenAssistantTexts.has(key)) continue;
+				seenAssistantTexts.add(key);
+				messages.push({ role: 'assistant', text });
+			}
+		}
+		return messages;
 	}
 
 	private parseLine(line: string, state: ParseState): SessionLogEntry | null {
@@ -262,6 +301,60 @@ function textOf(content: unknown): string {
 	if (!Array.isArray(content)) return '';
 	return content
 		.map((block) => (isObject(block) && typeof block.text === 'string' ? block.text : ''))
+		.join('\n');
+}
+
+/** ユーザーが中断したときに Claude Code が差し込む発言 */
+const INTERRUPTED_PREFIX = '[Request interrupted by user';
+
+/** Claude Code が差し込むタグのうち、中身ごと除くもの（コマンド名・コマンドやシェルの出力など） */
+const DROPPED_TAGS = [
+	'command-name',
+	'command-message',
+	'local-command-stdout',
+	'local-command-stderr',
+	'local-command-caveat',
+	'bash-stdout',
+	'bash-stderr',
+	'system-reminder',
+	'task-notification',
+];
+/** タグだけを除き、中身（ユーザーが入力したもの）は残すタグ */
+const UNWRAPPED_TAGS = ['command-args', 'bash-input'];
+
+/** 会話として要約に使う行か。メタ情報・サブエージェント・compact の要約・API エラーなどは除く */
+function isConversationRecord(record: Record<string, unknown>): boolean {
+	if (record.type !== 'user' && record.type !== 'assistant') return false;
+	if (record.isMeta === true || record.isSidechain === true) return false;
+	// compact 後に差し込まれる、それまでの会話の要約（ユーザーの発言ではない）
+	if (record.isCompactSummary === true || record.isVisibleInTranscriptOnly === true) return false;
+	if (record.type === 'user') {
+		// 作業完了の通知など、人が入力したのではない発言
+		const origin = isObject(record.origin) ? record.origin : null;
+		return !origin || origin.kind === undefined || origin.kind === 'human';
+	}
+	const message = isObject(record.message) ? record.message : {};
+	return record.isApiErrorMessage !== true && message.model !== SYNTHETIC_MODEL;
+}
+
+function stripCommandTags(text: string): string {
+	let result = text;
+	for (const tag of DROPPED_TAGS) {
+		result = result.replace(new RegExp(`<${tag}>[\\s\\S]*?</${tag}>`, 'g'), '');
+	}
+	for (const tag of UNWRAPPED_TAGS) {
+		result = result.replace(new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'g'), '$1');
+	}
+	return result;
+}
+
+/** 発言のテキスト。文字列か、text ブロックだけをつなげたもの */
+function conversationTextOf(content: unknown): string {
+	if (typeof content === 'string') return content;
+	if (!Array.isArray(content)) return '';
+	return content
+		.filter((block) => isObject(block) && block.type === 'text' && typeof block.text === 'string')
+		.map((block) => (block as { text: string }).text)
 		.join('\n');
 }
 
