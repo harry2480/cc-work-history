@@ -14,6 +14,8 @@ Claude Code のローカルセッションログを解析し、作業履歴を�
 ```sh
 pnpm dev               # 開発サーバー起動（Electron + Vite）
 pnpm verify            # lint → typecheck → unit test → depcruise
+pnpm build             # electron-vite で main / preload / renderer をビルド
+pnpm dist              # 実行中の OS 向けにパッケージを作る（署名なし、dist:mac / dist:win / dist:linux もあり）
 pnpm test:unit         # Unit テスト
 pnpm test:integration  # Integration テスト（SQLite・フィクスチャ JSONL を使用）
 pnpm lint:fix          # 自動フォーマット

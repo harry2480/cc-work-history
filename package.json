@@ -5,6 +5,10 @@
 	"scripts": {
 		"dev": "pnpm --filter desktop dev",
 		"build": "pnpm --filter desktop build",
+		"dist": "pnpm --filter desktop dist",
+		"dist:mac": "pnpm --filter desktop dist:mac",
+		"dist:win": "pnpm --filter desktop dist:win",
+		"dist:linux": "pnpm --filter desktop dist:linux",
 		"lint": "biome check .",
 		"lint:fix": "biome check --write .",
 		"typecheck": "pnpm --filter desktop typecheck",
