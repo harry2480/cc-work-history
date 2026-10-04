@@ -63,6 +63,7 @@ describe('ImportSessionLogsUseCase（実ファイル + SQLite）', () => {
 			unchanged: 0,
 			empty: 0,
 			failures: [],
+			importedSessions: expect.any(Array),
 		});
 		expect(count('sessions')).toBe(2);
 		expect(count('projects')).toBe(2);

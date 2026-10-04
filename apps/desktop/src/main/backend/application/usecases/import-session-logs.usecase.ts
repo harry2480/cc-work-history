@@ -10,6 +10,12 @@ export type ImportFailure = {
 	reason: string;
 };
 
+export type ImportedSession = {
+	id: string;
+	startedAt: Date;
+	endedAt: Date;
+};
+
 export type ImportResult = {
 	/** 見つかったセッションログファイルの数 */
 	scanned: number;
@@ -20,6 +26,13 @@ export type ImportResult = {
 	/** メッセージを含まないため取り込まなかったファイルの数 */
 	empty: number;
 	failures: ImportFailure[];
+	/** 取り込んだ（新規・更新）セッション */
+	importedSessions: ImportedSession[];
+};
+
+type ExecuteOptions = {
+	/** 指定したプロジェクトだけを対象にする（ファイル監視からの差分取り込み用） */
+	projectIds?: readonly string[];
 };
 
 type Options = {
@@ -47,12 +60,20 @@ export class ImportSessionLogsUseCase {
 		this.yieldControl = options.yieldControl ?? (() => new Promise((r) => setImmediate(r)));
 	}
 
-	async execute(): Promise<ImportResult> {
-		const result: ImportResult = { scanned: 0, imported: 0, unchanged: 0, empty: 0, failures: [] };
+	async execute({ projectIds }: ExecuteOptions = {}): Promise<ImportResult> {
+		const result: ImportResult = {
+			scanned: 0,
+			imported: 0,
+			unchanged: 0,
+			empty: 0,
+			failures: [],
+			importedSessions: [],
+		};
 		const importedFiles = this.sessionLogFileRepository.findAll();
+		const targetProjectIds = projectIds ?? (await this.sessionLogGateway.listProjectIds());
 		let processedInBatch = 0;
 
-		for (const projectId of await this.sessionLogGateway.listProjectIds()) {
+		for (const projectId of targetProjectIds) {
 			for (const file of await this.sessionLogGateway.listSessionFiles(projectId)) {
 				result.scanned++;
 				if (this.isUnchanged(file, importedFiles.get(file.path))) {
@@ -96,6 +117,11 @@ export class ImportSessionLogsUseCase {
 			// 記録は最後に保存する。途中で失敗したら次回に再取り込みされる
 			this.sessionLogFileRepository.save(file);
 			result.imported++;
+			result.importedSessions.push({
+				id: session.value.id,
+				startedAt: session.value.startedAt,
+				endedAt: session.value.endedAt,
+			});
 		} catch (error) {
 			result.failures.push({ path: file.path, reason: String(error) });
 		}
