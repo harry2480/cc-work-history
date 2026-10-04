@@ -1,0 +1,9 @@
+{
+	"extends": "./tsconfig.web.json",
+	"compilerOptions": {
+		"composite": false,
+		"types": ["node"]
+	},
+	"include": ["test/**/*", "src/**/*", "vitest.config.ts"],
+	"exclude": ["test/fixtures/**"]
+}
