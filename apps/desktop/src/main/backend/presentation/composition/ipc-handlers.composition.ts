@@ -8,6 +8,7 @@ import { GetSessionDetailUseCase } from '../../application/usecases/get-session-
 import { GetTimelineUseCase } from '../../application/usecases/get-timeline.usecase';
 import type { ImportResult } from '../../application/usecases/import-session-logs.usecase';
 import { ListSessionsUseCase } from '../../application/usecases/list-sessions.usecase';
+import { ResumeSessionUseCase } from '../../application/usecases/resume-session.usecase';
 import { UpdateIdleThresholdUseCase } from '../../application/usecases/update-idle-threshold.usecase';
 import { UpdateSessionAnnotationUseCase } from '../../application/usecases/update-session-annotation.usecase';
 import { SqliteActivityStatsRepository } from '../../infrastructure/repositories/sqlite-activity-stats.repository';
@@ -16,11 +17,13 @@ import { SqliteProjectRepository } from '../../infrastructure/repositories/sqlit
 import { SqliteSessionAnnotationRepository } from '../../infrastructure/repositories/sqlite-session-annotation.repository';
 import { SqliteSessionRepository } from '../../infrastructure/repositories/sqlite-session.repository';
 import { updateSessionAnnotation } from '../actions/session-annotation.action';
+import { resumeSession } from '../actions/session-resume.action';
 import { updateIdleThreshold } from '../actions/settings.action';
 import { loadDashboard } from '../loaders/dashboard.loader';
 import { loadSessionList } from '../loaders/session-list.loader';
 import { type DataPaths, loadSettings } from '../loaders/settings.loader';
 import { loadFilterOptions, loadSessionDetail, loadTimeline } from '../loaders/timeline.loader';
+import { createTerminalLauncher } from './terminal-launcher.composition';
 
 type Options = {
 	paths: DataPaths;
@@ -87,5 +90,12 @@ export function registerIpcHandlers(
 	});
 	ipcMain.handle(IPC_CHANNELS.updateIdleThreshold, (_event, request: unknown) =>
 		updateIdleThreshold(updateIdleThresholdUseCase, request),
+	);
+	const resumeSessionUseCase = new ResumeSessionUseCase(
+		sessionRepository,
+		createTerminalLauncher(),
+	);
+	ipcMain.handle(IPC_CHANNELS.resumeSession, (_event, request: unknown) =>
+		resumeSession(resumeSessionUseCase, request),
 	);
 }
