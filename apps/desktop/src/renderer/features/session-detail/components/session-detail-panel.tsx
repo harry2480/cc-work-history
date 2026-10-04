@@ -5,6 +5,7 @@ import type { SessionDetailDto } from '@shared/ipc-contract';
 import type { ReactNode } from 'react';
 import { useSessionDetail } from '../api/use-session-detail';
 import { AnnotationSection } from './annotation-section';
+import { CopyMarkdownButton } from './copy-markdown-button';
 
 export function SessionDetailPanel() {
 	const sessionId = useTimelineStore((s) => s.selectedSessionId);
@@ -52,6 +53,9 @@ function SessionDetail({ detail }: { detail: SessionDetailDto }) {
 					)}
 				</div>
 				<p className="mt-1 break-all text-xs text-muted-foreground">{detail.project.path}</p>
+				<div className="mt-3">
+					<CopyMarkdownButton key={detail.id} detail={detail} />
+				</div>
 			</header>
 
 			<AnnotationSection key={detail.id} detail={detail} />
