@@ -10,6 +10,12 @@ export type SessionLogFile = {
 	sizeBytes: number;
 };
 
+/** 会話の 1 発言（概要の生成に使う） */
+export type ConversationMessage = {
+	role: 'user' | 'assistant';
+	text: string;
+};
+
 /** Claude Code のセッションログの読み取り。ログは読み取り専用で、書き換えない */
 export interface SessionLogGateway {
 	/** プロジェクト ID（ログのルート直下のディレクトリ名）の一覧 */
@@ -18,4 +24,9 @@ export interface SessionLogGateway {
 	listSessionFiles(projectId: string): Promise<SessionLogFile[]>;
 	/** メッセージを取り出す。読めない行・対象外の行はスキップする */
 	readEntries(file: SessionLogFile): Promise<SessionLogEntry[]>;
+	/**
+	 * 会話のテキストだけを時系列で取り出す（概要の生成用）。
+	 * ツールの入出力・思考・メタ情報・サブエージェントの発言は含めない
+	 */
+	readConversation(file: SessionLogFile): Promise<ConversationMessage[]>;
 }

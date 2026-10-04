@@ -7,6 +7,7 @@ import { useTimelineStore } from '@/stores/timeline-store';
 import type { SessionDetailDto } from '@shared/ipc-contract';
 import { Pencil } from 'lucide-react';
 import { type FormEvent, useState } from 'react';
+import { GenerateSummaryButton } from './generate-summary-button';
 
 type Props = {
 	detail: SessionDetailDto;
@@ -23,16 +24,26 @@ export function parseTagInput(input: string): string[] {
 /** 概要とタグの表示と、手動での編集 */
 export function AnnotationSection({ detail }: Props) {
 	const [editing, setEditing] = useState(false);
+	// 生成中に編集を開くと、どちらかの結果が消えるため開かせない
+	const [generating, setGenerating] = useState(false);
 
 	return (
 		<section>
-			<div className="mb-2 flex items-center justify-between">
+			<div className="mb-2 flex items-start justify-between">
 				<h3 className="text-sm font-bold text-muted-foreground">概要・タグ</h3>
 				{!editing && (
-					<Button variant="ghost" size="sm" onClick={() => setEditing(true)}>
-						<Pencil />
-						編集
-					</Button>
+					<div className="flex items-start gap-1">
+						<GenerateSummaryButton sessionId={detail.id} onGeneratingChange={setGenerating} />
+						<Button
+							variant="ghost"
+							size="sm"
+							disabled={generating}
+							onClick={() => setEditing(true)}
+						>
+							<Pencil />
+							編集
+						</Button>
+					</div>
 				)}
 			</div>
 			{editing ? (

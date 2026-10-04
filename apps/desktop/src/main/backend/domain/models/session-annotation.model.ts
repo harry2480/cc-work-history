@@ -67,6 +67,33 @@ export class SessionAnnotation {
 		};
 	}
 
+	/**
+	 * 自動生成した概要とタグを反映する。
+	 * - 手動で編集した概要は上書きしない。概要が空・長すぎる場合も今の概要を残す
+	 * - 手動で付けたタグは残し、前回の自動タグを今回の自動タグに入れ替える。
+	 *   使えないタグ名や手動タグとの重複は除き、合計 MAX_TAGS 個までにする
+	 */
+	withGenerated(generated: { summary: string; tagNames: readonly string[] }): SessionAnnotation {
+		const generatedSummary = generated.summary.trim();
+		const summary =
+			this.summaryEditedManually ||
+			!generatedSummary ||
+			generatedSummary.length > MAX_SUMMARY_LENGTH
+				? this.summary
+				: generatedSummary;
+
+		const tags: AnnotatedTag[] = this.tags.filter((t) => t.source === 'manual');
+		for (const name of generated.tagNames) {
+			if (tags.length >= MAX_TAGS) break;
+			// 手動編集の入力欄の区切り文字を含むタグは、再編集で分かれてしまうので使わない
+			if (/[,、\n]/.test(name)) continue;
+			const tag = Tag.create(name);
+			if (!tag.success || tags.some((t) => t.tag.equals(tag.value))) continue;
+			tags.push({ tag: tag.value, source: 'auto' });
+		}
+		return new SessionAnnotation(summary, this.summaryEditedManually, tags);
+	}
+
 	get tagNames(): string[] {
 		return this.tags.map((t) => t.tag.name);
 	}

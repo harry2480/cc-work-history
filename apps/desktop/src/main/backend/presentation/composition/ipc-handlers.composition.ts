@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import type { IpcMain } from 'electron';
 import { IPC_CHANNELS, type PingResult } from '../../../../shared/ipc-contract';
+import { GenerateSessionSummaryUseCase } from '../../application/usecases/generate-session-summary.usecase';
 import { GetAppSettingsUseCase } from '../../application/usecases/get-app-settings.usecase';
 import { GetDashboardUseCase } from '../../application/usecases/get-dashboard.usecase';
 import { GetFilterOptionsUseCase } from '../../application/usecases/get-filter-options.usecase';
@@ -20,6 +21,7 @@ import { SqliteSessionResultRepository } from '../../infrastructure/repositories
 import { SqliteSessionRepository } from '../../infrastructure/repositories/sqlite-session.repository';
 import { updateSessionAnnotation } from '../actions/session-annotation.action';
 import { resumeSession } from '../actions/session-resume.action';
+import { generateSessionSummary } from '../actions/session-summary.action';
 import { updateIdleThreshold } from '../actions/settings.action';
 import { loadDashboard } from '../loaders/dashboard.loader';
 import { loadSessionList } from '../loaders/session-list.loader';
@@ -27,6 +29,8 @@ import { loadSessionResult } from '../loaders/session-result.loader';
 import { type DataPaths, loadSettings } from '../loaders/settings.loader';
 import { loadFilterOptions, loadSessionDetail, loadTimeline } from '../loaders/timeline.loader';
 import { createGitGateway } from './git.composition';
+import { createSessionLogGateway } from './session-log.composition';
+import { createSummaryGenerator } from './summary-generator.composition';
 import { createTerminalLauncher } from './terminal-launcher.composition';
 
 type Options = {
@@ -110,5 +114,14 @@ export function registerIpcHandlers(
 	);
 	ipcMain.handle(IPC_CHANNELS.getSessionResult, (_event, request: unknown) =>
 		loadSessionResult(getSessionResult, request, new Date()),
+	);
+	const generateSummary = new GenerateSessionSummaryUseCase(
+		sessionRepository,
+		annotationRepository,
+		createSessionLogGateway(),
+		createSummaryGenerator(),
+	);
+	ipcMain.handle(IPC_CHANNELS.generateSessionSummary, (_event, request: unknown) =>
+		generateSessionSummary(generateSummary, request),
 	);
 }
