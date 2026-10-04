@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { TimelineView } from '@/features/timeline/components/timeline-view';
+import { useDisplaySettingsStore } from '@/stores/display-settings-store';
 import { useTimelineStore } from '@/stores/timeline-store';
 import type {
 	DesktopApi,
@@ -39,6 +40,7 @@ let notifyChange: (payload: SessionsChangedPayload) => void;
 
 beforeEach(() => {
 	useTimelineStore.setState({ weekStart });
+	useDisplaySettingsStore.setState({ colorBy: 'project' });
 	getTimeline = vi.fn<DesktopApi['getTimeline']>(async () => timeline([session()]));
 	notifyChange = () => {};
 	window.api = {
@@ -80,6 +82,29 @@ describe('TimelineView', () => {
 
 		expect(useTimelineStore.getState().selectedSessionId).toBe('s1');
 		expect(bar.getAttribute('aria-pressed')).toBe('true');
+	});
+
+	it('色分けの基準を切り替えると凡例が変わり、選択を保存する', async () => {
+		getTimeline.mockResolvedValue(
+			timeline([session({ tags: ['docs'] }), session({ id: 's2', status: 'active', tags: [] })]),
+		);
+		render(<TimelineView />);
+		await screen.findAllByRole('button', { name: /^app/ });
+		const legend = () => screen.getByRole('list', { name: '凡例' }).textContent;
+		expect(legend()).toBe('app');
+
+		fireEvent.click(screen.getByRole('button', { name: 'タグ' }));
+		expect(legend()).toBe('#docsタグなし');
+		expect(screen.getByText(/最初のタグの色/)).toBeTruthy();
+
+		fireEvent.click(screen.getByRole('button', { name: 'ステータス' }));
+		expect(legend()).toBe('完了進行中');
+		expect(screen.getByRole('button', { name: 'ステータス' }).getAttribute('aria-pressed')).toBe(
+			'true',
+		);
+		expect(localStorage.getItem('cc-work-history:display-settings')).toContain(
+			'"colorBy":"status"',
+		);
 	});
 
 	it('進行中のセッションは読み上げ用のラベルでも示す', async () => {
