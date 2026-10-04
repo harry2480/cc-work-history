@@ -1,0 +1,76 @@
+# electron-builder の設定。署名なしのローカルビルド専用（Issue #42 の maintainer 決定）。
+# コード署名・公証・GitHub Releases への公開・CI での配布は行わない。
+appId: com.cc-work-history.app
+productName: CC Work History
+
+directories:
+  output: release/${version}
+
+# 同梱するファイルは OS ごとの files に書く（mac で定義した YAML アンカーを win / linux で再利用する）。
+# - electron-vite のビルド結果（out/）と package.json（と実行時の dependencies）だけを含め、
+#   src / test / フィクスチャ / docs / 設定ファイルは含めない
+# - better-sqlite3 は全 OS・CPU の prebuild を持つので、ビルド対象以外の .node を除く。
+#   ${platform} マクロはビルド対象ではなく実行中の OS に展開されるため、OS 名は各 OS の files に直接書く
+#   （OS ごとの files はトップレベルの files を上書きするので、トップレベルには書かない）
+
+# ネイティブモジュール（better_sqlite3.node）は asar から展開しないと読み込めない
+asar: true
+asarUnpack:
+  - "**/*.node"
+
+# better-sqlite3 は N-API の prebuild を同梱しており Electron の ABI に依存しないため、
+# node-gyp による再ビルドは行わない（ビルド環境に Python / C++ ツールチェーンを要求しない）
+npmRebuild: false
+
+# アップロードは一切しない
+publish: null
+
+mac:
+  target:
+    - target: dmg
+  category: public.app-category.developer-tools
+  # 署名・公証はしない（Developer ID 証明書を探しにいかない）
+  identity: null
+  notarize: false
+  files:
+    - &out out/**/*
+    - &package-json package.json
+    # prebuild を使うので、C++ ソースとビルド定義は同梱しない
+    - &exclude-sqlite-sources "!**/node_modules/better-sqlite3/{deps,src}/**"
+    - &exclude-sqlite-gyp "!**/node_modules/better-sqlite3/binding.gyp"
+    - "!**/node_modules/better-sqlite3/prebuilds/!(darwin-${arch}).node"
+
+dmg:
+  sign: false
+  # 自動アップデートは行わないので、差分更新用の blockmap は作らない
+  writeUpdateInfo: false
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+  signAndEditExecutable: false
+  files:
+    - *out
+    - *package-json
+    - *exclude-sqlite-sources
+    - *exclude-sqlite-gyp
+    - "!**/node_modules/better-sqlite3/prebuilds/!(win32-${arch}).node"
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  differentialPackage: false
+
+linux:
+  target:
+    - target: AppImage
+      arch: [x64]
+  category: Development
+  files:
+    - *out
+    - *package-json
+    - *exclude-sqlite-sources
+    - *exclude-sqlite-gyp
+    - "!**/node_modules/better-sqlite3/prebuilds/!(linux-${arch}).node"
