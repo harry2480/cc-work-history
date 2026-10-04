@@ -1,0 +1,3 @@
+`~/.claude/projects/` を模したテスト用のログ。実際のセッションログは含めない（内容はすべて架空）。
+読み取り対象外の行（system・ai-title・attachment・isMeta）、壊れた行、不正な時刻、未知のフィールド、
+内容ブロックごとに重複した assistant 行を意図的に含む。
