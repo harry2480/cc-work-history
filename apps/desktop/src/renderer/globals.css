@@ -61,6 +61,7 @@
 }
 
 :root {
+	color-scheme: light;
 	--radius: 0.625rem;
 
 	--background: oklch(0.978 0.003 247.8);
@@ -102,9 +103,22 @@
 	--sidebar-accent-foreground: oklch(0.547 0.085 180.7);
 	--sidebar-border: oklch(0.906 0.003 247.8);
 	--sidebar-ring: oklch(0.637 0.098 180.7);
+
+	/* タイムラインのプロジェクト色（lib/config/palette.ts） */
+	--project-color-1: oklch(0.62 0.13 180);
+	--project-color-2: oklch(0.62 0.16 255);
+	--project-color-3: oklch(0.68 0.16 45);
+	--project-color-4: oklch(0.6 0.18 300);
+	--project-color-5: oklch(0.7 0.15 130);
+	--project-color-6: oklch(0.62 0.19 15);
+	--project-color-7: oklch(0.75 0.14 85);
+	--project-color-8: oklch(0.58 0.12 220);
+	--project-color-9: oklch(0.66 0.15 340);
+	--project-color-10: oklch(0.55 0.08 70);
 }
 
 .dark {
+	color-scheme: dark;
 	--background: oklch(0.145 0 0);
 	--foreground: oklch(0.985 0 0);
 	--card: oklch(0.205 0 0);
@@ -144,6 +158,17 @@
 	--sidebar-accent-foreground: oklch(0.985 0 0);
 	--sidebar-border: oklch(0.269 0 0);
 	--sidebar-ring: oklch(0.556 0 0);
+
+	--project-color-1: oklch(0.72 0.12 180);
+	--project-color-2: oklch(0.72 0.14 255);
+	--project-color-3: oklch(0.76 0.14 45);
+	--project-color-4: oklch(0.72 0.16 300);
+	--project-color-5: oklch(0.78 0.14 130);
+	--project-color-6: oklch(0.72 0.17 15);
+	--project-color-7: oklch(0.82 0.13 85);
+	--project-color-8: oklch(0.7 0.11 220);
+	--project-color-9: oklch(0.75 0.14 340);
+	--project-color-10: oklch(0.68 0.07 70);
 }
 
 @layer base {
