@@ -11,8 +11,8 @@ import type {
 	TimelineActivity,
 } from '../../application/usecases/get-timeline.usecase';
 
-/** タイムラインで一度に取得できる期間の上限 */
-const MAX_PERIOD_MS = 31 * 24 * 60 * 60 * 1000;
+/** タイムラインで一度に取得できる期間の上限（夏時間が終わる月は 1 時間長くなるので、その分を足す） */
+const MAX_PERIOD_MS = 31 * 24 * 60 * 60 * 1000 + 60 * 60 * 1000;
 const MAX_ID_LENGTH = 200;
 const MAX_FILTER_VALUES = 100;
 const MAX_FILTER_VALUE_LENGTH = 200;

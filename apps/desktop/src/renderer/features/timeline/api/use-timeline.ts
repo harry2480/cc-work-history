@@ -1,3 +1,4 @@
+import { ipcErrorMessage } from '@/lib/utils/ipc-error';
 import { overlaps, weekPeriod } from '@/lib/utils/week';
 import { toFilterDto, useFilterStore } from '@/stores/filter-store';
 import { useTimelineStore } from '@/stores/timeline-store';
@@ -30,7 +31,7 @@ export function useTimeline(weekStart: Date): TimelineState {
 			});
 			setState({ data, loading: false, error: null });
 		} catch (error) {
-			setState({ data: null, loading: false, error: String(error) });
+			setState({ data: null, loading: false, error: ipcErrorMessage(error) });
 		}
 	}, [weekStartTime, projectIds, tags, query]);
 

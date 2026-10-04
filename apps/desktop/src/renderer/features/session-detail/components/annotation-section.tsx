@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { ipcErrorMessage } from '@/lib/utils/ipc-error';
 import { useTimelineStore } from '@/stores/timeline-store';
 import type { SessionDetailDto } from '@shared/ipc-contract';
 import { Pencil } from 'lucide-react';
@@ -25,7 +26,7 @@ export function parseTagInput(input: string): string[] {
 export function AnnotationSection({ detail }: Props) {
 	const [editing, setEditing] = useState(false);
 	// 生成中に編集を開くと、どちらかの結果が消えるため開かせない
-	const [generating, setGenerating] = useState(false);
+	const generating = useTimelineStore((s) => s.generatingSummaryIds.includes(detail.id));
 
 	return (
 		<section>
@@ -33,7 +34,7 @@ export function AnnotationSection({ detail }: Props) {
 				<h3 className="text-sm font-bold text-muted-foreground">概要・タグ</h3>
 				{!editing && (
 					<div className="flex items-start gap-1">
-						<GenerateSummaryButton sessionId={detail.id} onGeneratingChange={setGenerating} />
+						<GenerateSummaryButton sessionId={detail.id} />
 						<Button
 							variant="ghost"
 							size="sm"
@@ -105,7 +106,7 @@ function AnnotationForm({ detail, onDone }: Props & { onDone: () => void }) {
 			notifyDataChanged();
 			onDone();
 		} catch (e) {
-			setError(String(e));
+			setError(ipcErrorMessage(e));
 		} finally {
 			setSaving(false);
 		}

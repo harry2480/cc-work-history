@@ -199,6 +199,7 @@ export function TimelineView() {
 										activity={bar.activity}
 										lane={bar.lane}
 										laneCount={barsByDay[dayIndex]?.laneCount ?? 1}
+										tooltipAbove={dayIndex >= days.length - 2}
 										color={colorGroupOf(bar.session, colorBy, colorOverrides).color}
 										isSelected={bar.session.id === selectedSessionId}
 										onSelect={selectSession}

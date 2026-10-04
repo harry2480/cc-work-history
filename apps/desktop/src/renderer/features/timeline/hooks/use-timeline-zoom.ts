@@ -13,6 +13,9 @@ type Options = {
  * タイムラインのズーム。ボタン・キーボード（+ / - / 0）・Ctrl/⌘ + ホイール（ピンチ）で拡大縮小し、
  * 基準点（ホイールならマウスの位置、それ以外は表示の中央）の下の時刻が動かないようにスクロールを補正する
  */
+/** ズームを 1 段階動かすのに必要な deltaY の量（マウスホイールは 1 回で 100 前後） */
+const WHEEL_STEP = 50;
+
 export function useTimelineZoom({ scrollRef, labelWidth }: Options) {
 	const zoom = useTimelineStore((s) => s.zoom);
 	const setZoom = useTimelineStore((s) => s.setZoom);
@@ -55,11 +58,17 @@ export function useTimelineZoom({ scrollRef, labelWidth }: Options) {
 	useEffect(() => {
 		const el = scrollRef.current;
 		if (!el) return;
+		// トラックパッドのピンチは小さな deltaY を連続して送るので、一定量たまったら 1 段階動かす
+		let accumulated = 0;
 		const onWheel = (event: WheelEvent) => {
 			if (!event.ctrlKey && !event.metaKey) return;
 			event.preventDefault();
+			if (event.deltaY === 0) return;
+			accumulated += event.deltaY;
+			if (Math.abs(accumulated) < WHEEL_STEP) return;
 			const current = useTimelineStore.getState().zoom;
-			changeZoom(event.deltaY < 0 ? zoomIn(current) : zoomOut(current), event.clientX);
+			changeZoom(accumulated < 0 ? zoomIn(current) : zoomOut(current), event.clientX);
+			accumulated = 0;
 		};
 		el.addEventListener('wheel', onWheel, { passive: false });
 		return () => el.removeEventListener('wheel', onWheel);

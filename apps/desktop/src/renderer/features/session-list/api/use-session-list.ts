@@ -1,3 +1,4 @@
+import { ipcErrorMessage } from '@/lib/utils/ipc-error';
 import { toFilterDto, useFilterStore } from '@/stores/filter-store';
 import { useTimelineStore } from '@/stores/timeline-store';
 import type { ListSessionsRequest, SessionListDto } from '@shared/ipc-contract';
@@ -33,7 +34,7 @@ export function useSessionList(
 			});
 			setState({ data, loading: false, error: null });
 		} catch (error) {
-			setState({ data: null, loading: false, error: String(error) });
+			setState({ data: null, loading: false, error: ipcErrorMessage(error) });
 		}
 	}, [projectIds, tags, query, key, direction, page, pageSize]);
 

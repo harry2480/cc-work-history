@@ -1,3 +1,4 @@
+import { ipcErrorMessage } from '@/lib/utils/ipc-error';
 import { useTimelineStore } from '@/stores/timeline-store';
 import type { DashboardDto } from '@shared/ipc-contract';
 import { useCallback, useEffect, useState } from 'react';
@@ -25,7 +26,7 @@ export function useDashboard(period: DashboardPeriod): DashboardState {
 			});
 			setState({ data, loading: false, error: null });
 		} catch (error) {
-			setState({ data: null, loading: false, error: String(error) });
+			setState({ data: null, loading: false, error: ipcErrorMessage(error) });
 		}
 	}, [from, to]);
 

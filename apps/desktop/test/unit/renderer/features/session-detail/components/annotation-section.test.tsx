@@ -39,7 +39,7 @@ let update: ReturnType<typeof vi.fn<DesktopApi['updateSessionAnnotation']>>;
 beforeEach(() => {
 	update = vi.fn<DesktopApi['updateSessionAnnotation']>(async () => {});
 	window.api = { updateSessionAnnotation: update } as unknown as DesktopApi;
-	useTimelineStore.setState({ dataVersion: 0 });
+	useTimelineStore.setState({ dataVersion: 0, generatingSummaryIds: [] });
 });
 
 afterEach(() => {
@@ -129,6 +129,31 @@ describe('AnnotationSection', () => {
 
 		fireEvent.click(screen.getByRole('button', { name: '概要を生成' }));
 		expect(screen.getByRole('button', { name: '編集' })).toHaveProperty('disabled', true);
+
+		finish();
+		await waitFor(() =>
+			expect(screen.getByRole('button', { name: '編集' })).toHaveProperty('disabled', false),
+		);
+	});
+
+	it('生成中にパネルを開き直しても、編集は開けないまま', async () => {
+		let finish: () => void = () => {};
+		window.api = {
+			updateSessionAnnotation: vi.fn(),
+			generateSessionSummary: vi.fn(
+				() =>
+					new Promise((resolve) => {
+						finish = () => resolve({ status: 'ok' });
+					}),
+			),
+		} as unknown as DesktopApi;
+		const { unmount } = render(<AnnotationSection detail={detail()} />);
+		fireEvent.click(screen.getByRole('button', { name: '概要を生成' }));
+		unmount();
+
+		render(<AnnotationSection detail={detail()} />);
+		expect(screen.getByRole('button', { name: '編集' })).toHaveProperty('disabled', true);
+		expect(screen.getByRole('button', { name: '生成中…' })).toBeTruthy();
 
 		finish();
 		await waitFor(() =>

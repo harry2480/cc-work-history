@@ -1,6 +1,7 @@
+import { ipcErrorMessage } from '@/lib/utils/ipc-error';
 import { useTimelineStore } from '@/stores/timeline-store';
 import type { SessionDetailDto } from '@shared/ipc-contract';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type SessionDetailState = {
 	data: SessionDetailDto | null;
@@ -17,17 +18,28 @@ export function useSessionDetail(sessionId: string | null): SessionDetailState {
 	});
 	const dataVersion = useTimelineStore((s) => s.dataVersion);
 
+	// 古い応答が後から届いても、最新の表示を上書きしないようにする
+	const latestRequest = useRef(0);
+
 	const load = useCallback(async () => {
+		const request = ++latestRequest.current;
 		if (!sessionId) {
 			setState({ data: null, loading: false, error: null });
 			return;
 		}
-		setState((prev) => ({ ...prev, loading: true }));
+		// 別のセッションに切り替えたら、読み込み中に前のセッションの詳細を見せない（操作もさせない）
+		setState((prev) => ({
+			data: prev.data?.id === sessionId ? prev.data : null,
+			loading: true,
+			error: null,
+		}));
 		try {
 			const data = await window.api.getSessionDetail({ id: sessionId });
-			setState({ data, loading: false, error: null });
+			if (request === latestRequest.current) setState({ data, loading: false, error: null });
 		} catch (error) {
-			setState({ data: null, loading: false, error: String(error) });
+			if (request === latestRequest.current) {
+				setState({ data: null, loading: false, error: ipcErrorMessage(error) });
+			}
 		}
 	}, [sessionId]);
 
