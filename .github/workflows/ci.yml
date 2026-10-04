@@ -14,23 +14,6 @@ jobs:
     name: 検証
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: starter_templete
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres -d starter_templete"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/starter_templete?schema=public
-      DIRECT_URL: postgresql://postgres:postgres@localhost:5432/starter_templete?schema=public
     steps:
       - uses: actions/checkout@v4
 
@@ -44,8 +27,8 @@ jobs:
           cache: pnpm
 
       - run: pnpm install --frozen-lockfile
-      - run: pnpm --filter webapp exec prisma migrate deploy
       - run: pnpm verify
+      - run: pnpm test:integration
       - run: pnpm build
 
   ci-status:

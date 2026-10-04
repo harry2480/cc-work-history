@@ -3,8 +3,6 @@
 Claude Code のローカルセッションログを解析し、作業履歴をカレンダー／タイムライン形式で可視化するデスクトップアプリケーションです。
 Claude Code と普段どおりチャットするだけで、セッションの概要やタグが自動生成・更新され、「いつ・何を・どのくらい作業したか」を一目で把握できます。
 
-> **開発状況**: 要件定義・設計ドキュメントを作成した段階です。リポジトリのコードはまだスターターテンプレート（Next.js / `apps/webapp/`）のままで、Electron 構成への移行は [実装計画](docs/実装計画.md) の Phase 0 で行います。
-
 ## 主な機能
 
 - `~/.claude/projects/` 配下の JSONL ログを自動検出・解析し、ローカルの SQLite にキャッシュ
@@ -30,7 +28,7 @@ Claude Code と普段どおりチャットするだけで、セッションの�
 | ビルド・配布 | electron-builder |
 | 品質 | Vitest + dependency-cruiser + Biome |
 
-## プロジェクト構成（予定）
+## プロジェクト構成
 
 ```text
 cc-work-history/
@@ -58,8 +56,6 @@ cc-work-history/
 | `pnpm lint:fix` | 自動フォーマット・Lint 適用 |
 | `pnpm merge [PR]` | PR マージ＋ブランチ削除・リモート追跡ブランチ削除 |
 | `pnpm knip` | 未使用コード検出 |
-
-Phase 0 の移行が終わるまで、各コマンドはスターター（`apps/webapp/`）に対して動きます。
 
 ## ドキュメント
 
