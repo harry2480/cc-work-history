@@ -23,6 +23,8 @@ function session(overrides: Partial<TimelineSessionDto> = {}): TimelineSessionDt
 		status: 'completed',
 		totalTokens: 12_000,
 		messageCount: 8,
+		summary: null,
+		tags: [],
 		activities: [{ startedAt: at(29, 9), endedAt: at(29, 10), messageCount: 8 }],
 		...overrides,
 	};
@@ -43,6 +45,7 @@ beforeEach(() => {
 		ping: vi.fn(),
 		getTimeline,
 		getSessionDetail: vi.fn(),
+		updateSessionAnnotation: vi.fn(),
 		onSessionsChanged: (listener) => {
 			notifyChange = listener;
 			return () => {};

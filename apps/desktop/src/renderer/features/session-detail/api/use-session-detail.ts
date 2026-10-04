@@ -1,3 +1,4 @@
+import { useTimelineStore } from '@/stores/timeline-store';
 import type { SessionDetailDto } from '@shared/ipc-contract';
 import { useCallback, useEffect, useState } from 'react';
 
@@ -14,6 +15,7 @@ export function useSessionDetail(sessionId: string | null): SessionDetailState {
 		loading: false,
 		error: null,
 	});
+	const dataVersion = useTimelineStore((s) => s.dataVersion);
 
 	const load = useCallback(async () => {
 		if (!sessionId) {
@@ -29,9 +31,10 @@ export function useSessionDetail(sessionId: string | null): SessionDetailState {
 		}
 	}, [sessionId]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: dataVersion が変わったら取り直す
 	useEffect(() => {
 		void load();
-	}, [load]);
+	}, [load, dataVersion]);
 
 	useEffect(() => {
 		if (!sessionId) return;

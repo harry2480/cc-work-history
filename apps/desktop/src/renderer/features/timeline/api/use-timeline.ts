@@ -1,3 +1,4 @@
+import { useTimelineStore } from '@/stores/timeline-store';
 import type { TimelineDto } from '@shared/ipc-contract';
 import { useCallback, useEffect, useState } from 'react';
 import { overlaps, weekPeriod } from '../utils/week';
@@ -12,6 +13,7 @@ type TimelineState = {
 export function useTimeline(weekStart: Date): TimelineState {
 	const [state, setState] = useState<TimelineState>({ data: null, loading: true, error: null });
 	const weekStartTime = weekStart.getTime();
+	const dataVersion = useTimelineStore((s) => s.dataVersion);
 
 	const load = useCallback(async () => {
 		const { from, to } = weekPeriod(new Date(weekStartTime));
@@ -24,9 +26,10 @@ export function useTimeline(weekStart: Date): TimelineState {
 		}
 	}, [weekStartTime]);
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: dataVersion が変わったら取り直す
 	useEffect(() => {
 		void load();
-	}, [load]);
+	}, [load, dataVersion]);
 
 	useEffect(() => {
 		const period = weekPeriod(new Date(weekStartTime));

@@ -1,4 +1,6 @@
+import type { TagSource } from '../../domain/models/session-annotation.model';
 import { DEFAULT_IDLE_THRESHOLD_MS, type SessionStatus } from '../../domain/models/session.model';
+import type { SessionAnnotationRepository } from '../../domain/repositories/session-annotation.repository';
 import type { SessionRepository } from '../../domain/repositories/session.repository';
 import type { TimelineActivity } from './get-timeline.usecase';
 
@@ -16,6 +18,10 @@ export type SessionDetail = {
 	totalTokens: number;
 	messageCount: number;
 	models: string[];
+	summary: string | null;
+	/** 概要をユーザーが手動で編集したか */
+	summaryEditedManually: boolean;
+	tags: { name: string; source: TagSource }[];
 	activities: TimelineActivity[];
 };
 
@@ -23,6 +29,7 @@ export type SessionDetail = {
 export class GetSessionDetailUseCase {
 	constructor(
 		private readonly sessionRepository: SessionRepository,
+		private readonly sessionAnnotationRepository: SessionAnnotationRepository,
 		private readonly idleThresholdMs = DEFAULT_IDLE_THRESHOLD_MS,
 	) {}
 
@@ -30,6 +37,7 @@ export class GetSessionDetailUseCase {
 		const found = this.sessionRepository.findById(id);
 		if (!found) return null;
 		const { session, project } = found;
+		const annotation = this.sessionAnnotationRepository.findBySessionId(id);
 		return {
 			id: session.id,
 			project: { id: project.id, name: project.name, path: project.path },
@@ -43,6 +51,9 @@ export class GetSessionDetailUseCase {
 			totalTokens: session.totalTokens,
 			messageCount: session.messageCount,
 			models: [...session.models],
+			summary: annotation?.summary ?? null,
+			summaryEditedManually: annotation?.summaryEditedManually ?? false,
+			tags: (annotation?.tags ?? []).map(({ tag, source }) => ({ name: tag.name, source })),
 			activities: session.activities.map((a) => ({
 				startedAt: a.startedAt,
 				endedAt: a.endedAt,

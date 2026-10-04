@@ -21,6 +21,9 @@ function detail(overrides: Partial<SessionDetailDto> = {}): SessionDetailDto {
 		totalTokens: 131_346,
 		messageCount: 42,
 		models: ['claude-opus-5-5', 'claude-sonnet-5-5'],
+		summary: null,
+		summaryEditedManually: false,
+		tags: [],
 		activities: [
 			{ startedAt: at(9), endedAt: at(10), messageCount: 30 },
 			{ startedAt: at(10, 55), endedAt: at(11, 30), messageCount: 12 },
@@ -39,6 +42,7 @@ beforeEach(() => {
 	window.api = {
 		ping: vi.fn(),
 		getTimeline: vi.fn(),
+		updateSessionAnnotation: vi.fn(async () => {}),
 		getSessionDetail,
 		onSessionsChanged: (listener) => {
 			notifyChange = listener;
