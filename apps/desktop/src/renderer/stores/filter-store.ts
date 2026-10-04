@@ -7,6 +7,8 @@ type FilterState = {
 	query: string;
 	toggleProject: (projectId: string) => void;
 	toggleTag: (tag: string) => void;
+	/** 選択から外す（非表示にしたプロジェクトなど、選択肢から消えたもの） */
+	removeProject: (projectId: string) => void;
 	setQuery: (query: string) => void;
 	clear: () => void;
 };
@@ -18,6 +20,8 @@ export const useFilterStore = create<FilterState>((set) => ({
 	toggleProject: (projectId) =>
 		set((state) => ({ projectIds: toggle(state.projectIds, projectId) })),
 	toggleTag: (tag) => set((state) => ({ tags: toggle(state.tags, tag) })),
+	removeProject: (projectId) =>
+		set((state) => ({ projectIds: state.projectIds.filter((id) => id !== projectId) })),
 	setQuery: (query) => set({ query }),
 	clear: () => set({ projectIds: [], tags: [], query: '' }),
 }));

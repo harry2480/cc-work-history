@@ -11,6 +11,8 @@ export function ProjectVisibilitySection() {
 	const [pendingId, setPendingId] = useState<string | null>(null);
 
 	const toggle = async (projectId: string, hidden: boolean) => {
+		// 変更中は次の操作を受け付けない（disabled にするとキーボードのフォーカスが外れるため使わない）
+		if (pendingId !== null) return;
 		setPendingId(projectId);
 		setUpdateError(null);
 		try {
@@ -46,7 +48,8 @@ export function ProjectVisibilitySection() {
 							<li key={project.id} className="flex items-center gap-3">
 								<Switch
 									checked={!project.hidden}
-									disabled={pendingId !== null}
+									aria-disabled={pendingId !== null}
+									aria-busy={pendingId === project.id}
 									aria-label={`${project.name} を表示する`}
 									onCheckedChange={(checked) => void toggle(project.id, !checked)}
 								/>

@@ -10,6 +10,7 @@ import {
 	UpdateProjectVisibilityUseCase,
 } from '../../../../../../src/main/backend/application/usecases/update-project-visibility.usecase';
 import { Project } from '../../../../../../src/main/backend/domain/models/project.model';
+import { SessionAnnotation } from '../../../../../../src/main/backend/domain/models/session-annotation.model';
 import { Session } from '../../../../../../src/main/backend/domain/models/session.model';
 import { migrationFiles } from '../../../../../../src/main/backend/infrastructure/db/migrations';
 import { openSqliteDatabase } from '../../../../../../src/main/backend/infrastructure/db/sqlite-connection';
@@ -84,6 +85,15 @@ describe('プロジェクトの非表示', () => {
 	});
 
 	it('非表示のプロジェクトのセッションは、タイムライン・一覧・集計・絞り込みの選択肢に出さない', () => {
+		const annotations = new SqliteSessionAnnotationRepository(db);
+		annotations.save(
+			's-app',
+			SessionAnnotation.empty().withGenerated({ summary: 'a', tagNames: ['共通', 'app'] }),
+		);
+		annotations.save(
+			's-mem',
+			SessionAnnotation.empty().withGenerated({ summary: 'm', tagNames: ['共通', 'memo'] }),
+		);
 		projects.setHidden('p-mem', true);
 
 		expect(sessions.findByPeriod(period).map((s) => s.session.id)).toEqual(['s-app']);
@@ -100,11 +110,13 @@ describe('プロジェクトの非表示', () => {
 		expect(stats.summarizeByBuckets([period])[0]?.sessionCount).toBe(1);
 		expect(stats.summarizeByProject(period).map((p) => p.projectId)).toEqual(['p-app']);
 
-		const filterOptions = new GetFilterOptionsUseCase(
-			projects,
-			new SqliteSessionAnnotationRepository(db),
-		).execute();
+		const filterOptions = new GetFilterOptionsUseCase(projects, annotations).execute();
 		expect(filterOptions.projects.map((p) => p.id)).toEqual(['p-app']);
+		// 非表示のプロジェクトでしか使っていないタグも選択肢に出さない
+		expect(filterOptions.tags).toEqual(['app', '共通']);
+
+		// 非表示のプロジェクトを指定して絞り込んでも出さない
+		expect(sessions.findByPeriod(period, { projectIds: ['p-mem'] })).toEqual([]);
 
 		// 詳細はセッション ID を指定すれば読める
 		expect(sessions.findById('s-mem')?.session.id).toBe('s-mem');
@@ -128,6 +140,24 @@ describe('プロジェクトの非表示', () => {
 		expect(() =>
 			new UpdateProjectVisibilityUseCase(projects).execute({ projectId: 'missing', hidden: true }),
 		).toThrow(ProjectNotFoundError);
+	});
+});
+
+describe('マイグレーション 0008', () => {
+	it('既存の DB に適用すると、既存のプロジェクトは表示のまま残る', () => {
+		const legacyDb = openSqliteDatabase(join(dir, 'legacy.db'));
+		const upTo7 = Object.fromEntries(
+			Object.entries(migrationFiles).filter(([name]) => !name.includes('/0008_')),
+		);
+		SqliteMigrator.fromFiles(upTo7).migrate(legacyDb);
+		legacyDb
+			.prepare('INSERT INTO projects (id, path, last_activity_at) VALUES (?, ?, ?)')
+			.run('p-old', '/repo/old', 0);
+
+		expect(SqliteMigrator.fromFiles(migrationFiles).migrate(legacyDb)).toEqual([8]);
+		expect(new SqliteProjectRepository(legacyDb).findAll().map((p) => p.id)).toEqual(['p-old']);
+		expect(new SqliteProjectRepository(legacyDb).findHiddenIds()).toEqual([]);
+		legacyDb.close();
 	});
 });
 
