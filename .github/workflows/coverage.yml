@@ -41,6 +41,8 @@ jobs:
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
+          # files で指定したファイルだけを送る（自動検索で他アプリの lcov が混ざるのを防ぐ）
+          disable_search: true
           files: apps/desktop/coverage/lcov.info
           flags: desktop
           fail_ci_if_error: false
@@ -49,6 +51,8 @@ jobs:
         uses: codecov/codecov-action@v7
         with:
           use_oidc: true
+          # files で指定したファイルだけを送る（自動検索で他アプリの lcov が混ざるのを防ぐ）
+          disable_search: true
           files: apps/webapp/coverage/lcov.info
           flags: webapp
           fail_ci_if_error: false
