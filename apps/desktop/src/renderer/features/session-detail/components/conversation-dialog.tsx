@@ -13,6 +13,7 @@ import type { ConversationMessageDto } from '@shared/ipc-contract';
 import { MessagesSquare } from 'lucide-react';
 import { useState } from 'react';
 import { useSessionConversation } from '../api/use-session-conversation';
+import { ConversationMarkdown } from './conversation-markdown';
 
 const ROLE_LABELS = { user: 'あなた', assistant: 'Claude' } as const;
 
@@ -103,11 +104,11 @@ function MessageItem({ message }: { message: ConversationMessageDto }) {
 			<span className="text-xs font-bold text-muted-foreground">{ROLE_LABELS[message.role]}</span>
 			<div
 				className={cn(
-					'max-w-full whitespace-pre-wrap break-words rounded-card px-3 py-2 text-sm',
-					isUser ? 'bg-muted' : 'border',
+					'min-w-0 max-w-full rounded-card px-3 py-2',
+					isUser ? 'bg-muted [&_code]:bg-background [&_pre]:bg-background' : 'border',
 				)}
 			>
-				{message.text}
+				<ConversationMarkdown text={message.text} preserveLineBreaks={isUser} />
 			</div>
 		</li>
 	);
