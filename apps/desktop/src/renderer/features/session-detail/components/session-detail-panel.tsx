@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { useSessionDetail } from '../api/use-session-detail';
 import { AnnotationSection } from './annotation-section';
 import { CopyMarkdownButton } from './copy-markdown-button';
+import { ResumeSessionButton } from './resume-session-button';
 
 export function SessionDetailPanel() {
 	const sessionId = useTimelineStore((s) => s.selectedSessionId);
@@ -53,8 +54,10 @@ function SessionDetail({ detail }: { detail: SessionDetailDto }) {
 					)}
 				</div>
 				<p className="mt-1 break-all text-xs text-muted-foreground">{detail.project.path}</p>
-				<div className="mt-3">
-					<CopyMarkdownButton key={detail.id} detail={detail} />
+				{/* セッションを切り替えたら、ボタンのお知らせを消す */}
+				<div key={detail.id} className="mt-3 flex flex-wrap items-start gap-2">
+					<ResumeSessionButton sessionId={detail.id} />
+					<CopyMarkdownButton detail={detail} />
 				</div>
 			</header>
 

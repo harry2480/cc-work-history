@@ -21,6 +21,8 @@ export const IPC_CHANNELS = {
 	getSettings: 'settings:get',
 	/** renderer → main: 活動区間を分ける無操作時間の閾値を変更し、活動区間を計算し直す */
 	updateIdleThreshold: 'settings:update-idle-threshold',
+	/** renderer → main: ターミナルを開いてセッションを再開する（claude -r） */
+	resumeSession: 'sessions:resume',
 	/** main → renderer: 取り込みでセッションが追加・更新された */
 	sessionsChanged: 'sessions:changed',
 } as const;
@@ -216,6 +218,16 @@ export type UpdateIdleThresholdResultDto = {
 	failedFiles: number;
 };
 
+export type ResumeSessionRequest = {
+	id: string;
+};
+
+export type ResumeSessionResultDto =
+	| { status: 'ok' }
+	/** この OS では未対応 */
+	| { status: 'unsupported'; reason: string }
+	| { status: 'failed'; reason: string };
+
 /** preload が `window.api` として renderer に公開する API */
 export type DesktopApi = {
 	ping(): Promise<PingResult>;
@@ -229,6 +241,7 @@ export type DesktopApi = {
 	getSettings(): Promise<SettingsDto>;
 	/** 活動区間の再計算が終わるまで待つ */
 	updateIdleThreshold(request: UpdateIdleThresholdRequest): Promise<UpdateIdleThresholdResultDto>;
+	resumeSession(request: ResumeSessionRequest): Promise<ResumeSessionResultDto>;
 	/** セッションの変更を購読する。戻り値の関数で購読を解除する */
 	onSessionsChanged(listener: (payload: SessionsChangedPayload) => void): () => void;
 };

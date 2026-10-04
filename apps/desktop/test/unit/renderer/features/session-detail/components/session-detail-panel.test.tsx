@@ -49,6 +49,7 @@ beforeEach(() => {
 		listSessions: vi.fn(),
 		getSettings: vi.fn(),
 		updateIdleThreshold: vi.fn(),
+		resumeSession: vi.fn(),
 		onSessionsChanged: (listener) => {
 			notifyChange = listener;
 			return () => {};
