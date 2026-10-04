@@ -278,7 +278,12 @@ export type ConversationMessageDto = {
 
 export type SessionConversationDto =
 	/** ツールの入出力・思考・メタ情報・サブエージェントの発言は含まない */
-	| { status: 'ok'; messages: ConversationMessageDto[] }
+	| {
+			status: 'ok';
+			messages: ConversationMessageDto[];
+			/** 古い発言を省いた、または長い発言を途中で切った */
+			truncated: boolean;
+	  }
 	/** ログファイルが見つからない */
 	| { status: 'missing' };
 

@@ -25,9 +25,17 @@ export function ConversationDialog({
 	projectName: string;
 }) {
 	const [open, setOpen] = useState(false);
+	// 閉じるアニメーションの間も中身を残す（開くまではログを読まない）
+	const [opened, setOpened] = useState(false);
 
 	return (
-		<Dialog open={open} onOpenChange={setOpen}>
+		<Dialog
+			open={open}
+			onOpenChange={(next) => {
+				setOpen(next);
+				if (next) setOpened(true);
+			}}
+		>
 			<DialogTrigger asChild>
 				<Button variant="outline" size="sm">
 					<MessagesSquare />
@@ -41,7 +49,7 @@ export function ConversationDialog({
 						ツールの入出力・思考・サブエージェントの発言は表示しません。
 					</DialogDescription>
 				</DialogHeader>
-				{open && <ConversationBody sessionId={sessionId} />}
+				{opened && <ConversationBody sessionId={sessionId} />}
 			</DialogContent>
 		</Dialog>
 	);
@@ -58,22 +66,26 @@ function ConversationBody({ sessionId }: { sessionId: string }) {
 		);
 	}
 	if (!data) {
-		return (
-			<p className="text-sm text-muted-foreground">
-				{loading ? '読み込み中…' : 'セッションが見つかりませんでした。'}
-			</p>
-		);
+		return <Status>{loading ? '読み込み中…' : 'セッションが見つかりませんでした。'}</Status>;
 	}
 	if (data.status === 'missing') {
-		return <p className="text-sm text-muted-foreground">ログファイルが見つかりませんでした。</p>;
+		return <Status>ログファイルが見つかりませんでした。</Status>;
 	}
 	if (data.messages.length === 0) {
-		return <p className="text-sm text-muted-foreground">会話の記録がありません。</p>;
+		return <Status>会話の記録がありません。</Status>;
 	}
 	return (
 		<div className="flex min-h-0 flex-col gap-2">
-			<p className="text-xs text-muted-foreground">{formatInteger(data.messages.length)} 件</p>
-			<ol className="-mx-2 flex min-h-0 flex-col gap-3 overflow-y-auto px-2">
+			<p className="text-xs text-muted-foreground">
+				{formatInteger(data.messages.length)} 件
+				{data.truncated && '（古い発言や長い発言の一部を省いています）'}
+			</p>
+			<ol
+				// biome-ignore lint/a11y/noNoninteractiveTabindex: キーボードでスクロールできるようにする
+				tabIndex={0}
+				aria-label="会話の発言"
+				className="-mx-2 flex min-h-0 flex-col gap-3 overflow-y-auto px-2"
+			>
 				{data.messages.map((message, index) => (
 					// 発言は並び替わらず、同じ文の発言もあるため位置をキーにする
 					// biome-ignore lint/suspicious/noArrayIndexKey: 読み取り専用の固定リスト
@@ -87,7 +99,7 @@ function ConversationBody({ sessionId }: { sessionId: string }) {
 function MessageItem({ message }: { message: ConversationMessageDto }) {
 	const isUser = message.role === 'user';
 	return (
-		<li className={cn('flex flex-col gap-1', isUser && 'items-end')}>
+		<li className={cn('flex flex-col gap-1 [content-visibility:auto]', isUser && 'items-end')}>
 			<span className="text-xs font-bold text-muted-foreground">{ROLE_LABELS[message.role]}</span>
 			<div
 				className={cn(
@@ -99,4 +111,8 @@ function MessageItem({ message }: { message: ConversationMessageDto }) {
 			</div>
 		</li>
 	);
+}
+
+function Status({ children }: { children: string }) {
+	return <output className="block text-sm text-muted-foreground">{children}</output>;
 }

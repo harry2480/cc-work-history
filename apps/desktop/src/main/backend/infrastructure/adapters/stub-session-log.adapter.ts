@@ -37,8 +37,9 @@ export class StubSessionLogAdapter implements SessionLogGateway {
 		return [...(this.find(file)?.entries ?? [])];
 	}
 
-	async readConversation(file: SessionLogFile): Promise<ConversationMessage[]> {
-		return [...(this.find(file)?.conversation ?? [])];
+	async readConversation(file: SessionLogFile): Promise<ConversationMessage[] | null> {
+		const session = this.find(file);
+		return session ? [...(session.conversation ?? [])] : null;
 	}
 
 	private find(file: SessionLogFile): StubSession | undefined {

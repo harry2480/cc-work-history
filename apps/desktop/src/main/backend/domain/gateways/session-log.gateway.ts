@@ -10,7 +10,7 @@ export type SessionLogFile = {
 	sizeBytes: number;
 };
 
-/** 会話の 1 発言（概要の生成に使う） */
+/** 会話の 1 発言（概要の生成と会話の表示に使う） */
 export type ConversationMessage = {
 	role: 'user' | 'assistant';
 	text: string;
@@ -25,8 +25,9 @@ export interface SessionLogGateway {
 	/** メッセージを取り出す。読めない行・対象外の行はスキップする */
 	readEntries(file: SessionLogFile): Promise<SessionLogEntry[]>;
 	/**
-	 * 会話のテキストだけを時系列で取り出す（概要の生成用）。
-	 * ツールの入出力・思考・メタ情報・サブエージェントの発言は含めない
+	 * 会話のテキストだけを時系列で取り出す（概要の生成と会話の表示用）。
+	 * ツールの入出力・思考・メタ情報・サブエージェントの発言は含めない。
+	 * 一覧を取ったあとにファイルが消えていたら null
 	 */
-	readConversation(file: SessionLogFile): Promise<ConversationMessage[]>;
+	readConversation(file: SessionLogFile): Promise<ConversationMessage[] | null>;
 }

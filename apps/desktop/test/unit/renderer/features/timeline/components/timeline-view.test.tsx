@@ -204,6 +204,19 @@ describe('TimelineView', () => {
 		expect(useTimelineStore.getState().zoom).toBe(1);
 	});
 
+	it('ダイアログの中で押したキーではズームしない', async () => {
+		render(<TimelineView />);
+		await screen.findByRole('button', { name: /^app/ });
+		const dialog = document.createElement('div');
+		dialog.setAttribute('role', 'dialog');
+		document.body.append(dialog);
+
+		fireEvent.keyDown(dialog, { key: '+' });
+
+		expect(useTimelineStore.getState().zoom).toBe(1);
+		dialog.remove();
+	});
+
 	it('Ctrl/⌘ + ホイールで拡大・縮小し、ただのホイールでは変わらない', async () => {
 		render(<TimelineView />);
 		await screen.findByRole('button', { name: /^app/ });

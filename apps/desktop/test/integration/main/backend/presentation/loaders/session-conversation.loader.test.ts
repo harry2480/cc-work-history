@@ -54,6 +54,7 @@ describe('loadSessionConversation（SQLite + Stub のログ）', () => {
 		expect(await loadSessionConversation(useCase, { id: 's1' })).toEqual({
 			status: 'ok',
 			messages: conversation,
+			truncated: false,
 		});
 	});
 

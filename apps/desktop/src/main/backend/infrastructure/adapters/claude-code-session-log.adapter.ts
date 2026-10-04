@@ -86,8 +86,15 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 		return entries;
 	}
 
-	async readConversation(file: SessionLogFile): Promise<ConversationMessage[]> {
-		const content = await readFile(file.path, 'utf-8');
+	async readConversation(file: SessionLogFile): Promise<ConversationMessage[] | null> {
+		let content: string;
+		try {
+			content = await readFile(file.path, 'utf-8');
+		} catch (error) {
+			// 一覧を取ってから読むまでに消えたファイル（古いログの自動削除など）
+			if (isObject(error) && error.code === 'ENOENT') return null;
+			throw error;
+		}
 		const messages: ConversationMessage[] = [];
 		// 同じ応答が内容ブロックごとに複数行に記録されるため、同じテキストは 1 回だけ使う
 		const seenAssistantTexts = new Set<string>();
