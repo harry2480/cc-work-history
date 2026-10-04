@@ -2,6 +2,14 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils/cn';
 import { formatDay, formatWeekRange } from '@/lib/utils/format';
+import {
+	addWeeks,
+	daysOfWeek,
+	isSameDay,
+	parseDateInput,
+	startOfWeek,
+	weekPeriod,
+} from '@/lib/utils/week';
 import { useDisplaySettingsStore } from '@/stores/display-settings-store';
 import { useTimelineStore } from '@/stores/timeline-store';
 import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
@@ -10,14 +18,6 @@ import { useTimeline } from '../api/use-timeline';
 import { useTimelineZoom } from '../hooks/use-timeline-zoom';
 import { colorGroupOf, legendOf } from '../utils/color-by';
 import { assignLanes, toBarSegments } from '../utils/layout';
-import {
-	addWeeks,
-	daysOfWeek,
-	isSameDay,
-	parseDateInput,
-	startOfWeek,
-	weekPeriod,
-} from '../utils/week';
 import { MAX_ZOOM, MIN_ZOOM, formatHourMark, hourMarkInterval, hourMarks } from '../utils/zoom';
 import { ColorBySwitch } from './color-by-switch';
 import { ColorLegend } from './color-legend';

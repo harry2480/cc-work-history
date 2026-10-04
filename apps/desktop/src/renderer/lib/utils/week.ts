@@ -53,3 +53,13 @@ export function parseDateInput(value: string): Date | null {
 	const date = new Date(year, month - 1, day);
 	return date.getMonth() === month - 1 && date.getDate() === day ? date : null;
 }
+
+/** その日を含む月の 1 日 0:00（ローカル時刻） */
+export function startOfMonth(date: Date): Date {
+	return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+/** 月の開始日から months か月ずらした 1 日 0:00 */
+export function addMonths(monthStart: Date, months: number): Date {
+	return new Date(monthStart.getFullYear(), monthStart.getMonth() + months, 1);
+}

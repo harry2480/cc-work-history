@@ -80,6 +80,12 @@ export function loadFilterOptions(useCase: GetFilterOptionsUseCase): FilterOptio
 type TimelineFilter = { projectIds?: string[]; tags?: string[]; query?: string };
 
 function parseTimelineRequest(request: unknown): { from: Date; to: Date; filter: TimelineFilter } {
+	const { from, to } = parsePeriodRequest(request);
+	return { from, to, filter: parseFilter((request as Record<string, unknown>).filter) };
+}
+
+/** `{ from, to }`（ISO 8601、from < to、最大 31 日）を検証する */
+export function parsePeriodRequest(request: unknown): { from: Date; to: Date } {
 	if (!isObject(request)) throw new InvalidIpcRequestError('期間を指定してください');
 	const from = parseDate(request.from, 'from');
 	const to = parseDate(request.to, 'to');
@@ -87,7 +93,7 @@ function parseTimelineRequest(request: unknown): { from: Date; to: Date; filter:
 	if (to.getTime() - from.getTime() > MAX_PERIOD_MS) {
 		throw new InvalidIpcRequestError('期間は 31 日以内にしてください');
 	}
-	return { from, to, filter: parseFilter(request.filter) };
+	return { from, to };
 }
 
 function parseFilter(value: unknown): TimelineFilter {

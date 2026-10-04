@@ -6,7 +6,7 @@ import {
 	parseDateInput,
 	startOfWeek,
 	weekPeriod,
-} from '@/features/timeline/utils/week';
+} from '@/lib/utils/week';
 import { describe, expect, it } from 'vitest';
 
 // ローカル時刻で組み立てて、実行環境のタイムゾーンに依存しないようにする

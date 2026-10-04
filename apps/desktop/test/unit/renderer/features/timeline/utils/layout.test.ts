@@ -3,7 +3,7 @@ import {
 	assignLanes,
 	toBarSegments,
 } from '@/features/timeline/utils/layout';
-import { daysOfWeek } from '@/features/timeline/utils/week';
+import { daysOfWeek } from '@/lib/utils/week';
 import { describe, expect, it } from 'vitest';
 
 const local = (d: number, h = 0, min = 0) => new Date(2026, 8, d, h, min);

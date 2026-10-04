@@ -1,8 +1,8 @@
+import { overlaps, weekPeriod } from '@/lib/utils/week';
 import { toFilterDto, useFilterStore } from '@/stores/filter-store';
 import { useTimelineStore } from '@/stores/timeline-store';
 import type { TimelineDto } from '@shared/ipc-contract';
 import { useCallback, useEffect, useState } from 'react';
-import { overlaps, weekPeriod } from '../utils/week';
 
 type TimelineState = {
 	data: TimelineDto | null;

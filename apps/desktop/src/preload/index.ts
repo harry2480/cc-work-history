@@ -7,6 +7,7 @@ const api: DesktopApi = {
 	getTimeline: (request) => ipcRenderer.invoke(IPC_CHANNELS.getTimeline, request),
 	getSessionDetail: (request) => ipcRenderer.invoke(IPC_CHANNELS.getSessionDetail, request),
 	getFilterOptions: () => ipcRenderer.invoke(IPC_CHANNELS.getFilterOptions),
+	getDashboard: (request) => ipcRenderer.invoke(IPC_CHANNELS.getDashboard, request),
 	updateSessionAnnotation: (request) =>
 		ipcRenderer.invoke(IPC_CHANNELS.updateSessionAnnotation, request),
 	onSessionsChanged: (listener) => {
