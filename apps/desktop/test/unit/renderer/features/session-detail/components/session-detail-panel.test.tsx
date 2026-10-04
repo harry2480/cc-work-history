@@ -38,7 +38,10 @@ let notifyChange: (payload: SessionsChangedPayload) => void;
 beforeEach(() => {
 	useTimelineStore.setState({ selectedSessionId: null });
 	getSessionDetail = vi.fn<DesktopApi['getSessionDetail']>(async () => detail());
-	notifyChange = () => {};
+	const listeners = new Set<(payload: SessionsChangedPayload) => void>();
+	notifyChange = (payload) => {
+		for (const listener of listeners) listener(payload);
+	};
 	window.api = {
 		ping: vi.fn(),
 		getTimeline: vi.fn(),
@@ -50,9 +53,10 @@ beforeEach(() => {
 		getSettings: vi.fn(),
 		updateIdleThreshold: vi.fn(),
 		resumeSession: vi.fn(),
+		getSessionResult: vi.fn(async () => null),
 		onSessionsChanged: (listener) => {
-			notifyChange = listener;
-			return () => {};
+			listeners.add(listener);
+			return () => listeners.delete(listener);
 		},
 	};
 });
