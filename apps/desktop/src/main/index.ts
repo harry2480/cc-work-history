@@ -1,6 +1,15 @@
 import { join } from 'node:path';
-import { BrowserWindow, app, ipcMain } from 'electron';
+import type Database from 'better-sqlite3';
+import { BrowserWindow, app, dialog, ipcMain } from 'electron';
 import { IPC_CHANNELS, type PingResult } from '../shared/ipc-contract';
+import { openAppDatabase } from './backend/presentation/composition/database.composition';
+
+// 開発時は本番と別の userData を使い、本番のデータを壊さない
+if (!app.isPackaged) {
+	app.setPath('userData', `${app.getPath('userData')}-dev`);
+}
+
+let database: Database.Database | null = null;
 
 function registerIpcHandlers(): void {
 	ipcMain.handle(
@@ -34,6 +43,13 @@ function createWindow(): void {
 }
 
 app.whenReady().then(() => {
+	try {
+		database = openAppDatabase(app.getPath('userData'));
+	} catch (error) {
+		dialog.showErrorBox('データベースを開けませんでした', String(error));
+		app.quit();
+		return;
+	}
 	registerIpcHandlers();
 	createWindow();
 
@@ -44,4 +60,9 @@ app.whenReady().then(() => {
 
 app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') app.quit();
+});
+
+app.on('will-quit', () => {
+	database?.close();
+	database = null;
 });
