@@ -1,10 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils/cn';
+import { formatDay, formatWeekRange } from '@/lib/utils/format';
 import { useTimelineStore } from '@/stores/timeline-store';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { useTimeline } from '../api/use-timeline';
-import { formatDay, formatWeekRange } from '../utils/format';
 import { assignLanes, toBarSegments } from '../utils/layout';
 import { addWeeks, daysOfWeek, isSameDay, startOfWeek, weekPeriod } from '../utils/week';
 import { SessionBar } from './session-bar';
@@ -17,6 +17,8 @@ const MIN_ROW_HEIGHT = 48;
 export function TimelineView() {
 	const weekStart = useTimelineStore((s) => s.weekStart);
 	const setWeekStart = useTimelineStore((s) => s.setWeekStart);
+	const selectedSessionId = useTimelineStore((s) => s.selectedSessionId);
+	const selectSession = useTimelineStore((s) => s.selectSession);
 	const { data, loading, error } = useTimeline(weekStart);
 	const days = useMemo(() => daysOfWeek(weekStart), [weekStart]);
 	const today = new Date();
@@ -119,6 +121,8 @@ export function TimelineView() {
 									activity={bar.activity}
 									lane={bar.lane}
 									laneCount={barsByDay[dayIndex]?.laneCount ?? 1}
+									isSelected={bar.session.id === selectedSessionId}
+									onSelect={selectSession}
 								/>
 							))}
 						</div>
