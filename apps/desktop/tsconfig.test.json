@@ -2,7 +2,7 @@
 	"extends": "./tsconfig.web.json",
 	"compilerOptions": {
 		"composite": false,
-		"types": ["node"]
+		"types": ["node", "vite/client"]
 	},
 	"include": ["test/**/*", "src/**/*", "vitest.config.ts"],
 	"exclude": ["test/fixtures/**"]

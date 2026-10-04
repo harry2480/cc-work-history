@@ -8,8 +8,15 @@ export default defineConfig({
 			provider: 'v8',
 			reporter: ['text', 'lcov'],
 			include: ['src/**/*.{ts,tsx}'],
-			// shadcn/ui から移植した UI コンポーネントは計測対象外
-			exclude: ['src/**/*.d.ts', 'src/renderer/components/ui/**'],
+			exclude: [
+				'src/**/*.d.ts',
+				// shadcn/ui から移植した UI コンポーネント
+				'src/renderer/components/ui/**',
+				// Electron の起動処理（main / preload / renderer のエントリ）は E2E で確認する
+				'src/main/index.ts',
+				'src/preload/index.ts',
+				'src/renderer/main.tsx',
+			],
 		},
 	},
 	resolve: {

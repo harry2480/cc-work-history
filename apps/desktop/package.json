@@ -1,5 +1,6 @@
 {
 	"name": "desktop",
+	"productName": "CC Work History",
 	"private": true,
 	"main": "out/main/index.js",
 	"scripts": {
@@ -9,11 +10,12 @@
 		"typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json && tsc --noEmit -p tsconfig.test.json",
 		"lint": "biome check .",
 		"test:unit": "vitest run --dir test/unit",
-		"test:coverage": "vitest run --dir test/unit --coverage",
+		"test:coverage": "vitest run --coverage",
 		"test:integration": "vitest run --dir test/integration",
 		"depcruise": "depcruise src --config .dependency-cruiser.cjs"
 	},
 	"dependencies": {
+		"better-sqlite3": "^13.0.3",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"lucide-react": "^0.474.0",
@@ -24,6 +26,7 @@
 	},
 	"devDependencies": {
 		"@tailwindcss/vite": "^4.3.3",
+		"@types/better-sqlite3": "^9.6.0",
 		"@types/node": "^22.18.8",
 		"@types/react": "^18.3.31",
 		"@types/react-dom": "^18.3.7",
