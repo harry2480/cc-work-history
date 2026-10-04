@@ -51,10 +51,17 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 		const entries = await this.readDirOrEmpty(projectDir);
 		const files = entries.filter((e) => e.isFile() && e.name.endsWith(SESSION_FILE_EXTENSION));
 
-		return Promise.all(
-			files.map(async (file) => {
+		const results = await Promise.all(
+			files.map(async (file): Promise<SessionLogFile | null> => {
 				const path = join(projectDir, file.name);
-				const stats = await stat(path);
+				let stats: Awaited<ReturnType<typeof stat>>;
+				try {
+					stats = await stat(path);
+				} catch (error) {
+					// 一覧を取ってから stat するまでに消えたファイル（古いログの自動削除など）は飛ばす
+					if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
+					throw error;
+				}
 				return {
 					projectId,
 					sessionId: basename(file.name, SESSION_FILE_EXTENSION),
@@ -64,6 +71,7 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 				};
 			}),
 		);
+		return results.filter((file): file is SessionLogFile => file !== null);
 	}
 
 	async readEntries(file: SessionLogFile): Promise<SessionLogEntry[]> {

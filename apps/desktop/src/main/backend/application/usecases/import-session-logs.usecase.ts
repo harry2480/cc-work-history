@@ -36,12 +36,16 @@ export type ImportResult = {
 type ExecuteOptions = {
 	/** 指定したプロジェクトだけを対象にする（ファイル監視からの差分取り込み用） */
 	projectIds?: readonly string[];
+	/** true を返したら、残りのファイルを読まずに終える（終了処理のため） */
+	shouldStop?: () => boolean;
 };
 
 type Options = {
 	/** この件数ごとに main プロセスのイベントループへ制御を返す */
 	batchSize?: number;
 	yieldControl?: () => Promise<void>;
+	/** ファイル 1 件分の保存（プロジェクト・セッション・取り込みの記録）を 1 つのトランザクションにまとめる */
+	transaction?: (fn: () => void) => void;
 	/** 活動区間を分ける無操作時間の閾値。設定の変更を反映するため、取り込みのたびに読む */
 	idleThresholdMs?: () => number;
 };
@@ -54,6 +58,7 @@ export class ImportSessionLogsUseCase {
 	private readonly batchSize: number;
 	private readonly yieldControl: () => Promise<void>;
 	private readonly idleThresholdMs: () => number;
+	private readonly transaction: (fn: () => void) => void;
 
 	constructor(
 		private readonly sessionLogGateway: SessionLogGateway,
@@ -65,9 +70,13 @@ export class ImportSessionLogsUseCase {
 		this.batchSize = options.batchSize ?? 50;
 		this.yieldControl = options.yieldControl ?? (() => new Promise((r) => setImmediate(r)));
 		this.idleThresholdMs = options.idleThresholdMs ?? (() => DEFAULT_IDLE_THRESHOLD_MS);
+		this.transaction = options.transaction ?? ((fn) => fn());
 	}
 
-	async execute({ projectIds }: ExecuteOptions = {}): Promise<ImportResult> {
+	async execute({
+		projectIds,
+		shouldStop = () => false,
+	}: ExecuteOptions = {}): Promise<ImportResult> {
 		const result: ImportResult = {
 			scanned: 0,
 			imported: 0,
@@ -82,7 +91,17 @@ export class ImportSessionLogsUseCase {
 		let processedInBatch = 0;
 
 		for (const projectId of targetProjectIds) {
-			for (const file of await this.sessionLogGateway.listSessionFiles(projectId)) {
+			if (shouldStop()) break;
+			let files: SessionLogFile[];
+			try {
+				files = await this.sessionLogGateway.listSessionFiles(projectId);
+			} catch (error) {
+				// 読めないプロジェクトがあっても、他のプロジェクトの取り込みは続ける
+				result.failures.push({ path: projectId, reason: String(error) });
+				continue;
+			}
+			for (const file of files) {
+				if (shouldStop()) break;
 				result.scanned++;
 				if (this.isUnchanged(file, importedFiles.get(file.path), idleThresholdMs)) {
 					result.unchanged++;
@@ -125,10 +144,12 @@ export class ImportSessionLogsUseCase {
 				return;
 			}
 
-			this.projectRepository.save(this.projectFor(session.value));
-			this.sessionRepository.save(session.value);
-			// 記録は最後に保存する。途中で失敗したら次回に再取り込みされる
-			this.sessionLogFileRepository.save({ ...file, idleThresholdMs });
+			// 途中で失敗したら全部取り消し、次回に再取り込みされる
+			this.transaction(() => {
+				this.projectRepository.save(this.projectFor(session.value));
+				this.sessionRepository.save(session.value);
+				this.sessionLogFileRepository.save({ ...file, idleThresholdMs });
+			});
 			result.imported++;
 			result.importedSessions.push({
 				id: session.value.id,

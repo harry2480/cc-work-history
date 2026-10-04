@@ -1,6 +1,7 @@
+import { ipcErrorMessage } from '@/lib/utils/ipc-error';
 import { useTimelineStore } from '@/stores/timeline-store';
 import type { DashboardDto } from '@shared/ipc-contract';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { DashboardPeriod } from '../utils/period';
 
 type DashboardState = {
@@ -16,16 +17,22 @@ export function useDashboard(period: DashboardPeriod): DashboardState {
 	const from = period.from.getTime();
 	const to = period.to.getTime();
 
+	// 条件を続けて変えたとき、古い応答で新しい表示を上書きしないようにする
+	const latestRequest = useRef(0);
+
 	const load = useCallback(async () => {
+		const request = ++latestRequest.current;
 		setState((prev) => ({ ...prev, loading: true }));
 		try {
 			const data = await window.api.getDashboard({
 				from: new Date(from).toISOString(),
 				to: new Date(to).toISOString(),
 			});
-			setState({ data, loading: false, error: null });
+			if (request === latestRequest.current) setState({ data, loading: false, error: null });
 		} catch (error) {
-			setState({ data: null, loading: false, error: String(error) });
+			if (request === latestRequest.current) {
+				setState({ data: null, loading: false, error: ipcErrorMessage(error) });
+			}
 		}
 	}, [from, to]);
 

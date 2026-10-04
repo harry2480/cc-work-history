@@ -108,8 +108,15 @@ describe('loadTimeline', () => {
 		['数値', { from: 0, to: week.to }],
 		['from が to 以降', { from: week.to, to: week.from }],
 		['31 日を超える期間', { from: iso(0), to: iso(32 * 24 * 60) }],
+		['31 日と 1 時間を超える期間', { from: iso(0), to: iso(31 * 24 * 60 + 61) }],
 	])('不正な引数（%s）はエラーにする', (_label, request) => {
 		expect(() => loadTimeline(getTimeline, request, new Date())).toThrow(InvalidIpcRequestError);
+	});
+
+	it('夏時間が終わる月（31 日と 1 時間）の期間は受け付ける', () => {
+		expect(() =>
+			loadTimeline(getTimeline, { from: iso(0), to: iso(31 * 24 * 60 + 60) }, new Date()),
+		).not.toThrow();
 	});
 });
 

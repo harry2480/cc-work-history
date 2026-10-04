@@ -36,6 +36,7 @@ export function FilterBar() {
 					placeholder="概要を検索"
 					value={input}
 					onChange={(e) => setInput(e.target.value)}
+					maxLength={200}
 					className="h-8 w-56 pl-8"
 				/>
 			</div>
@@ -63,7 +64,15 @@ export function FilterBar() {
 				))}
 			</MultiSelect>
 			{isFiltered && (
-				<Button variant="ghost" size="sm" onClick={clear}>
+				<Button
+					variant="ghost"
+					size="sm"
+					onClick={() => {
+						// 入力途中の検索が、クリアの後に反映されないようにする
+						setInput('');
+						clear();
+					}}
+				>
 					<X />
 					条件をクリア
 				</Button>

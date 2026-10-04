@@ -84,7 +84,15 @@ export class GitCliAdapter implements GitGateway {
 			execFile(
 				this.command,
 				// 利用者の設定で、署名の検証結果や色のエスケープが出力に混ざらないようにする
-				['-c', 'log.showSignature=false', '-c', 'color.ui=never', '-C', cwd, ...args],
+				[
+					...['-c', 'log.showSignature=false', '-c', 'color.ui=never'],
+					// ログに残った作業ディレクトリのリポジトリ設定でコマンドが動かないようにする（予防）
+					...['-c', 'core.fsmonitor=', '-c', 'core.hooksPath=/dev/null', '-c', 'diff.external='],
+					'--no-optional-locks',
+					'-C',
+					cwd,
+					...args,
+				],
 				{ env: this.env, timeout: TIMEOUT_MS, maxBuffer: MAX_BUFFER },
 				(error, stdout, stderr) => {
 					if (error) resolve({ ok: false, code: (error as NodeJS.ErrnoException).code, stderr });

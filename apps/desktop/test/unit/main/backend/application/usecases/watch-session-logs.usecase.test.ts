@@ -19,7 +19,14 @@ const t = (min: number) => new Date(Date.UTC(2026, 9, 1, 9, min));
 
 function setup(importResult: Partial<ImportResult> = {}) {
 	const watcher = new StubLogWatcherAdapter();
-	const importSessionLogs = { execute: vi.fn(async () => ({ ...emptyResult, ...importResult })) };
+	const importSessionLogs = {
+		execute: vi.fn(
+			async (_options: { projectIds?: readonly string[]; shouldStop?: () => boolean }) => ({
+				...emptyResult,
+				...importResult,
+			}),
+		),
+	};
 	const events: SessionsChangedEvent[] = [];
 	const useCase = new WatchSessionLogsUseCase(watcher, importSessionLogs, (e) => events.push(e), {
 		debounceMs: 1000,
@@ -49,7 +56,9 @@ describe('WatchSessionLogsUseCase', () => {
 
 		await vi.advanceTimersByTimeAsync(1000);
 		expect(importSessionLogs.execute).toHaveBeenCalledTimes(1);
-		expect(importSessionLogs.execute).toHaveBeenCalledWith({ projectIds: ['p1', 'p2'] });
+		expect(importSessionLogs.execute).toHaveBeenCalledWith(
+			expect.objectContaining({ projectIds: ['p1', 'p2'] }),
+		);
 	});
 
 	it('取り込んだセッションの ID と期間を通知する', async () => {
@@ -94,7 +103,9 @@ describe('WatchSessionLogsUseCase', () => {
 		finishFirst(emptyResult);
 		await vi.advanceTimersByTimeAsync(1000);
 		expect(importSessionLogs.execute).toHaveBeenCalledTimes(2);
-		expect(importSessionLogs.execute).toHaveBeenLastCalledWith({ projectIds: ['p2'] });
+		expect(importSessionLogs.execute).toHaveBeenLastCalledWith(
+			expect.objectContaining({ projectIds: ['p2'] }),
+		);
 	});
 
 	it('取り込みに失敗しても監視を続ける', async () => {
@@ -130,7 +141,9 @@ describe('WatchSessionLogsUseCase', () => {
 			const result = await useCase.importAll();
 
 			expect(result.imported).toBe(1);
-			expect(importSessionLogs.execute).toHaveBeenCalledWith({});
+			expect(importSessionLogs.execute).toHaveBeenCalledWith(
+				expect.not.objectContaining({ projectIds: expect.anything() }),
+			);
 			expect(events).toEqual([{ sessionIds: ['s1'], from: t(0), to: t(10) }]);
 		});
 
@@ -153,7 +166,9 @@ describe('WatchSessionLogsUseCase', () => {
 
 			finishDiff(emptyResult);
 			await all;
-			expect(importSessionLogs.execute).toHaveBeenLastCalledWith({});
+			expect(importSessionLogs.execute).toHaveBeenLastCalledWith(
+				expect.not.objectContaining({ projectIds: expect.anything() }),
+			);
 		});
 
 		it('取り込み中に届いた変更は、取り込みが終わってから差分取り込みする', async () => {
@@ -173,7 +188,9 @@ describe('WatchSessionLogsUseCase', () => {
 			finishAll(emptyResult);
 			await all;
 			await vi.advanceTimersByTimeAsync(1000);
-			expect(importSessionLogs.execute).toHaveBeenLastCalledWith({ projectIds: ['p1'] });
+			expect(importSessionLogs.execute).toHaveBeenLastCalledWith(
+				expect.objectContaining({ projectIds: ['p1'] }),
+			);
 		});
 
 		it('続けて呼ぶと順番に実行する', async () => {
@@ -202,7 +219,9 @@ describe('WatchSessionLogsUseCase', () => {
 
 			watcher.emit({ projectId: 'p1', path: '/l/p1/a.jsonl' });
 			await vi.advanceTimersByTimeAsync(1000);
-			expect(importSessionLogs.execute).toHaveBeenLastCalledWith({ projectIds: ['p1'] });
+			expect(importSessionLogs.execute).toHaveBeenLastCalledWith(
+				expect.objectContaining({ projectIds: ['p1'] }),
+			);
 		});
 
 		it('停止後は取り込まずにエラーにする', async () => {
@@ -235,5 +254,60 @@ describe('WatchSessionLogsUseCase', () => {
 			await stopping;
 			expect(stopped).toBe(true);
 		});
+	});
+
+	it('終了処理が始まったら、実行中の取り込みに打ち切りを伝える', async () => {
+		const { importSessionLogs, useCase } = setup();
+		let shouldStop: (() => boolean) | undefined;
+		let finish: (result: ImportResult) => void = () => {};
+		importSessionLogs.execute.mockImplementationOnce(
+			(options: { shouldStop?: () => boolean }) =>
+				new Promise<ImportResult>((resolve) => {
+					shouldStop = options.shouldStop;
+					finish = resolve;
+				}),
+		);
+		const all = useCase.importAll();
+		await vi.advanceTimersByTimeAsync(0);
+		expect(shouldStop?.()).toBe(false);
+
+		const stopping = useCase.stop();
+		expect(shouldStop?.()).toBe(true);
+		finish(emptyResult);
+		await all;
+		await stopping;
+	});
+
+	it('監視のエラーは onError に渡す', () => {
+		const watcher = new StubLogWatcherAdapter();
+		const errors: unknown[] = [];
+		const useCase = new WatchSessionLogsUseCase(
+			watcher,
+			{ execute: vi.fn(async () => emptyResult) },
+			() => {},
+			{ onError: (error) => errors.push(error) },
+		);
+		useCase.start();
+
+		watcher.fail(new Error('EMFILE'));
+
+		expect(errors).toEqual([new Error('EMFILE')]);
+	});
+
+	it('差分取り込みが失敗したら、同じプロジェクトを再試行する（3 回まで）', async () => {
+		const { watcher, importSessionLogs } = setup();
+		importSessionLogs.execute.mockRejectedValue(new Error('SQLITE_BUSY'));
+
+		watcher.emit({ projectId: 'p1', path: '/l/p1/a.jsonl' });
+		await vi.advanceTimersByTimeAsync(1000);
+		expect(importSessionLogs.execute).toHaveBeenCalledTimes(1);
+
+		for (let i = 0; i < 5; i++) await vi.advanceTimersByTimeAsync(1000);
+
+		// 最初の 1 回 + 再試行 3 回
+		expect(importSessionLogs.execute).toHaveBeenCalledTimes(4);
+		expect(importSessionLogs.execute).toHaveBeenLastCalledWith(
+			expect.objectContaining({ projectIds: ['p1'] }),
+		);
 	});
 });

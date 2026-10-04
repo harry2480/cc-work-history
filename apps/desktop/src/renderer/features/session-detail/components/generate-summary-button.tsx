@@ -13,20 +13,15 @@ const MESSAGES: Record<Exclude<GenerateSummaryResultDto['status'], 'ok'>, string
 };
 
 /** Claude CLI でセッションの概要とタグを生成する。手で編集した概要と手で付けたタグは残る */
-type Props = {
-	sessionId: string;
-	/** 生成中かどうかが変わったとき（生成中は手動の編集を開かせないため） */
-	onGeneratingChange?: (generating: boolean) => void;
-};
-
-export function GenerateSummaryButton({ sessionId, onGeneratingChange }: Props) {
+export function GenerateSummaryButton({ sessionId }: { sessionId: string }) {
 	const notifyDataChanged = useTimelineStore((s) => s.notifyDataChanged);
-	const [generating, setGenerating] = useState(false);
+	// パネルを開き直しても生成中だと分かるよう、store に持つ
+	const generating = useTimelineStore((s) => s.generatingSummaryIds.includes(sessionId));
+	const setGenerating = useTimelineStore((s) => s.setGeneratingSummary);
 	const [error, setError] = useState<string | null>(null);
 
 	const generate = async () => {
-		setGenerating(true);
-		onGeneratingChange?.(true);
+		setGenerating(sessionId, true);
 		setError(null);
 		try {
 			const result = await window.api.generateSessionSummary({ id: sessionId });
@@ -41,8 +36,7 @@ export function GenerateSummaryButton({ sessionId, onGeneratingChange }: Props) 
 		} catch (e) {
 			setError(ipcErrorMessage(e));
 		} finally {
-			setGenerating(false);
-			onGeneratingChange?.(false);
+			setGenerating(sessionId, false);
 		}
 	};
 

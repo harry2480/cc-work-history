@@ -212,7 +212,7 @@ describe('TimelineView', () => {
 		expect(useTimelineStore.getState().zoom).toBe(1);
 
 		const pinch = new WheelEvent('wheel', {
-			deltaY: -10,
+			deltaY: -100,
 			ctrlKey: true,
 			bubbles: true,
 			cancelable: true,
@@ -225,10 +225,30 @@ describe('TimelineView', () => {
 
 		act(() => {
 			scroll.dispatchEvent(
-				new WheelEvent('wheel', { deltaY: 10, metaKey: true, bubbles: true, cancelable: true }),
+				new WheelEvent('wheel', { deltaY: 100, metaKey: true, bubbles: true, cancelable: true }),
 			);
 		});
 		expect(useTimelineStore.getState().zoom).toBe(1);
+	});
+
+	it('トラックパッドのピンチ（小さな deltaY の連続）は、たまった量に応じて 1 段階ずつ動かす', async () => {
+		render(<TimelineView />);
+		await screen.findByRole('button', { name: /^app/ });
+		const scroll = screen.getByTestId('timeline-scroll');
+		const pinch = (deltaY: number) =>
+			act(() => {
+				scroll.dispatchEvent(
+					new WheelEvent('wheel', { deltaY, ctrlKey: true, bubbles: true, cancelable: true }),
+				);
+			});
+
+		for (let i = 0; i < 4; i++) pinch(-10);
+		expect(useTimelineStore.getState().zoom).toBe(1);
+		pinch(-10);
+		expect(useTimelineStore.getState().zoom).toBe(1.5);
+		// 横方向だけの動き（deltaY 0）では縮小しない
+		pinch(0);
+		expect(useTimelineStore.getState().zoom).toBe(1.5);
 	});
 
 	it('表示中の週に関係する更新通知を受けたら取り直す', async () => {

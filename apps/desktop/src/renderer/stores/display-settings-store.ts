@@ -95,6 +95,8 @@ export const useDisplaySettingsStore = create<DisplaySettingsState>()(
 			name: 'cc-work-history:display-settings',
 			storage: createJSONStorage(() => localStorage),
 			version: 1,
+			// 以前のバージョン（version 0）の保存データも捨てずに使う。中身は merge で検証する
+			migrate: (persisted) => persisted as DisplaySettingsState,
 			// 保存データが古い・壊れていても、項目ごとに既定値で補う
 			merge: (persisted, current) => ({ ...current, ...sanitize(persisted) }),
 		},

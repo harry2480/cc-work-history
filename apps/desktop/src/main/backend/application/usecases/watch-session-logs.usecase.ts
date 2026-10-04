@@ -9,8 +9,14 @@ export type SessionsChangedEvent = {
 	to: Date;
 };
 
+/** 差分取り込みが失敗したときに再試行する回数 */
+const MAX_RETRIES = 3;
+
 type ImportSessionLogs = {
-	execute(options: { projectIds?: readonly string[] }): Promise<ImportResult>;
+	execute(options: {
+		projectIds?: readonly string[];
+		shouldStop?: () => boolean;
+	}): Promise<ImportResult>;
 };
 
 type Options = {
@@ -28,6 +34,8 @@ export class WatchSessionLogsUseCase {
 	private readonly onError: (error: unknown) => void;
 	private readonly pendingProjectIds = new Set<string>();
 	private timer: ReturnType<typeof setTimeout> | null = null;
+	/** 差分取り込みが続けて失敗した回数（上限まで、同じプロジェクトをもう一度取り込む） */
+	private consecutiveFailures = 0;
 	private running: Promise<void> | null = null;
 	private stopped = false;
 
@@ -41,12 +49,18 @@ export class WatchSessionLogsUseCase {
 		this.onError = options.onError ?? (() => {});
 	}
 
+	/** 終了処理が始まったら、取り込みを途中で打ち切る（記録はファイルごとなので、次回そこから続く） */
+	private readonly isStopped = () => this.stopped;
+
 	start(): void {
 		this.stopped = false;
-		this.watcher.start((change) => {
-			this.pendingProjectIds.add(change.projectId);
-			this.schedule();
-		});
+		this.watcher.start(
+			(change) => {
+				this.pendingProjectIds.add(change.projectId);
+				this.schedule();
+			},
+			(error) => this.onError(error),
+		);
 	}
 
 	async stop(): Promise<void> {
@@ -83,7 +97,7 @@ export class WatchSessionLogsUseCase {
 	async importAll(): Promise<ImportResult> {
 		while (this.running) await this.running;
 		if (this.stopped) throw new Error('終了処理中のため取り込めません');
-		const task = this.importSessionLogs.execute({}).then((result) => {
+		const task = this.importSessionLogs.execute({ shouldStop: this.isStopped }).then((result) => {
 			this.publish(result);
 			return result;
 		});
@@ -119,9 +133,22 @@ export class WatchSessionLogsUseCase {
 		if (projectIds.length === 0 || this.stopped) return;
 
 		this.running = this.importSessionLogs
-			.execute({ projectIds })
-			.then((result) => this.publish(result))
-			.catch(this.onError)
+			.execute({ projectIds, shouldStop: this.isStopped })
+			.then((result) => {
+				this.consecutiveFailures = 0;
+				this.publish(result);
+			})
+			.catch((error) => {
+				this.onError(error);
+				// 一時的な失敗なら次の機会に取り込めるよう、対象のプロジェクトを戻して再試行する
+				this.consecutiveFailures++;
+				if (this.consecutiveFailures <= MAX_RETRIES && !this.stopped) {
+					for (const id of projectIds) this.pendingProjectIds.add(id);
+					this.schedule();
+				} else {
+					this.consecutiveFailures = 0;
+				}
+			})
 			.finally(() => {
 				this.running = null;
 			});

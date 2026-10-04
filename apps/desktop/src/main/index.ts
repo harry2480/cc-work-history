@@ -1,6 +1,7 @@
 import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import type Database from 'better-sqlite3';
-import { BrowserWindow, app, dialog, ipcMain } from 'electron';
+import { BrowserWindow, app, dialog, ipcMain, session } from 'electron';
 import type { ImportResult } from './backend/application/usecases/import-session-logs.usecase';
 import {
 	openAppDatabase,
@@ -32,6 +33,9 @@ async function importAndWatchSessionLogs(db: Database.Database): Promise<void> {
 	);
 	const watch = createWatchSessionLogsUseCase(db, publish);
 	watchSessionLogs = watch;
+	// 取り込み中に追記されたファイルも取りこぼさないよう、先に監視を始める。
+	// 届いた変更は、取り込みが終わってから差分取り込みする
+	watch.start();
 	try {
 		// 起動時の取り込みも、ファイル監視・設定変更による取り込みと同じ順番待ちで実行する。
 		// 取り込み前に開いた画面も最新になるよう、結果は通知される
@@ -39,8 +43,6 @@ async function importAndWatchSessionLogs(db: Database.Database): Promise<void> {
 	} catch (error) {
 		console.error('[import] セッションログの取り込みに失敗しました', error);
 	}
-	// 取り込み中に終了処理が始まっていたら、監視を始めない
-	if (!quitting) watch.start();
 }
 
 function logImportResult(trigger: string, result: ImportResult): void {
@@ -71,16 +73,60 @@ function createWindow(): void {
 
 	window.once('ready-to-show', () => window.show());
 
-	// dev では Vite の dev サーバー、build 後はバンドル済みの HTML を読み込む
-	const devServerUrl = process.env.ELECTRON_RENDERER_URL;
-	if (!app.isPackaged && devServerUrl) {
+	// アプリの画面以外（外部のページ・新しいウィンドウ）は開かない
+	window.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
+	window.webContents.on('will-navigate', (event, url) => {
+		if (!isAppUrl(url)) event.preventDefault();
+	});
+
+	const devServerUrl = devRendererUrl();
+	if (devServerUrl) {
 		window.loadURL(devServerUrl);
 	} else {
-		window.loadFile(join(__dirname, '../renderer/index.html'));
+		window.loadFile(rendererIndexPath());
 	}
 }
 
-app.whenReady().then(() => {
+/** dev では Vite の dev サーバー、build 後はバンドル済みの HTML を読み込む */
+function devRendererUrl(): string | null {
+	const url = process.env.ELECTRON_RENDERER_URL;
+	return !app.isPackaged && url ? url : null;
+}
+
+function rendererIndexPath(): string {
+	return join(__dirname, '../renderer/index.html');
+}
+
+/** アプリ自身の画面の URL か（IPC の呼び出し元の確認と、画面遷移の制限に使う） */
+function isAppUrl(url: string): boolean {
+	const devServerUrl = devRendererUrl();
+	if (devServerUrl) {
+		try {
+			return new URL(url).origin === new URL(devServerUrl).origin;
+		} catch {
+			return false;
+		}
+	}
+	return url.startsWith(pathToFileURL(rendererIndexPath()).href);
+}
+
+// 同じ DB を 2 つのプロセスで開かない（マイグレーションの二重適用などを防ぐ）
+if (!app.requestSingleInstanceLock()) {
+	console.info(
+		'[app] すでに起動しているため終了します（同じデータの場所を使うアプリが動いています）',
+	);
+	app.quit();
+} else {
+	app.on('second-instance', () => {
+		const [window] = BrowserWindow.getAllWindows();
+		if (!window) return;
+		if (window.isMinimized()) window.restore();
+		window.focus();
+	});
+	app.whenReady().then(onReady);
+}
+
+function onReady(): void {
 	try {
 		database = openAppDatabase(app.getPath('userData'));
 	} catch (error) {
@@ -88,7 +134,12 @@ app.whenReady().then(() => {
 		app.quit();
 		return;
 	}
+	// カメラ・通知などの権限は使わないので、すべて断る
+	session.defaultSession.setPermissionRequestHandler((_webContents, _permission, callback) =>
+		callback(false),
+	);
 	registerIpcHandlers(ipcMain, database, {
+		isTrustedSender: isAppUrl,
 		paths: {
 			logDirectory: resolveSessionLogRootDir(),
 			databasePath: resolveDatabasePath(app.getPath('userData')),
@@ -106,7 +157,7 @@ app.whenReady().then(() => {
 	app.on('activate', () => {
 		if (BrowserWindow.getAllWindows().length === 0) createWindow();
 	});
-});
+}
 
 app.on('window-all-closed', () => {
 	if (process.platform !== 'darwin') app.quit();
@@ -115,14 +166,19 @@ app.on('window-all-closed', () => {
 let quitting = false;
 app.on('will-quit', (event) => {
 	if (quitting) return;
-	// 監視を止めてから DB を閉じる（取り込み中なら完了を待つ）
+	// 監視を止めてから DB を閉じる（取り込み中なら、読み込み中のファイルが終わったところで打ち切る）
 	event.preventDefault();
 	quitting = true;
 	void (async () => {
-		await watchSessionLogs?.stop();
-		watchSessionLogs = null;
-		database?.close();
-		database = null;
-		app.quit();
+		try {
+			await watchSessionLogs?.stop();
+		} catch (error) {
+			console.error('[quit] ファイル監視を止められませんでした', error);
+		} finally {
+			watchSessionLogs = null;
+			database?.close();
+			database = null;
+			app.quit();
+		}
 	})();
 });

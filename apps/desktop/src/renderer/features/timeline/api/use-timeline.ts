@@ -1,8 +1,9 @@
+import { ipcErrorMessage } from '@/lib/utils/ipc-error';
 import { overlaps, weekPeriod } from '@/lib/utils/week';
 import { toFilterDto, useFilterStore } from '@/stores/filter-store';
 import { useTimelineStore } from '@/stores/timeline-store';
 import type { TimelineDto } from '@shared/ipc-contract';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type TimelineState = {
 	data: TimelineDto | null;
@@ -19,7 +20,11 @@ export function useTimeline(weekStart: Date): TimelineState {
 	const tags = useFilterStore((s) => s.tags);
 	const query = useFilterStore((s) => s.query);
 
+	// 条件を続けて変えたとき、古い応答で新しい表示を上書きしないようにする
+	const latestRequest = useRef(0);
+
 	const load = useCallback(async () => {
+		const request = ++latestRequest.current;
 		const { from, to } = weekPeriod(new Date(weekStartTime));
 		setState((prev) => ({ ...prev, loading: true }));
 		try {
@@ -28,9 +33,11 @@ export function useTimeline(weekStart: Date): TimelineState {
 				to: to.toISOString(),
 				filter: toFilterDto({ projectIds, tags, query }),
 			});
-			setState({ data, loading: false, error: null });
+			if (request === latestRequest.current) setState({ data, loading: false, error: null });
 		} catch (error) {
-			setState({ data: null, loading: false, error: String(error) });
+			if (request === latestRequest.current) {
+				setState({ data: null, loading: false, error: ipcErrorMessage(error) });
+			}
 		}
 	}, [weekStartTime, projectIds, tags, query]);
 

@@ -113,4 +113,24 @@ describe('ImportSessionLogsUseCase（実ファイル + SQLite）', () => {
 		expect(sessions.findById('new')).not.toBeNull();
 		expect(sessions.findById('11111111-1111-4111-8111-111111111111')).toEqual(before);
 	});
+
+	it('取り込みの記録の保存に失敗したら、そのファイルのセッションの保存も取り消す', async () => {
+		db.exec(
+			"CREATE TRIGGER fail_log_file BEFORE INSERT ON session_log_files BEGIN SELECT RAISE(ABORT, 'boom'); END",
+		);
+		const useCaseWithTransaction = new ImportSessionLogsUseCase(
+			new ClaudeCodeSessionLogAdapter(logDir),
+			new SqliteProjectRepository(db),
+			sessions,
+			new SqliteSessionLogFileRepository(db),
+			{ transaction: (fn) => db.transaction(fn)() },
+		);
+
+		const result = await useCaseWithTransaction.execute();
+
+		expect(result.imported).toBe(0);
+		expect(result.failures.length).toBeGreaterThan(0);
+		expect(count('sessions')).toBe(0);
+		expect(count('projects')).toBe(0);
+	});
 });

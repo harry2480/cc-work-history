@@ -142,4 +142,27 @@ describe('SessionDetailPanel', () => {
 
 		expect((await screen.findByRole('alert')).textContent).toContain('boom');
 	});
+
+	it('別のセッションに切り替えたら、読み込みが終わるまで前のセッションの詳細を出さない', async () => {
+		useTimelineStore.setState({ selectedSessionId: 's1' });
+		render(<SessionDetailPanel />);
+		await screen.findByRole('heading', { name: 'app' });
+
+		let finish: (value: SessionDetailDto) => void = () => {};
+		getSessionDetail.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve;
+				}),
+		);
+		act(() => useTimelineStore.setState({ selectedSessionId: 's2' }));
+
+		expect(screen.queryByRole('heading', { name: 'app' })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'ターミナルで再開' })).toBeNull();
+
+		await act(async () =>
+			finish(detail({ id: 's2', project: { id: 'p2', name: 'other', path: '/repo/other' } })),
+		);
+		expect(await screen.findByRole('heading', { name: 'other' })).toBeTruthy();
+	});
 });

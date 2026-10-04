@@ -14,6 +14,8 @@ type Props = {
 	color: string;
 	isSelected: boolean;
 	onSelect: (sessionId: string) => void;
+	/** 下の方の行では、スクロール領域で切れないようツールチップを上に出す */
+	tooltipAbove?: boolean;
 };
 
 /** 活動区間 1 つ分のバー。位置と幅だけを style で指定する（docs/スタイルガイド.md） */
@@ -26,6 +28,7 @@ export function SessionBar({
 	color,
 	isSelected,
 	onSelect,
+	tooltipAbove = false,
 }: Props) {
 	const isActive = session.status === 'active';
 	const label = `${session.project.name} ${formatTime(activity.startedAt)}〜${formatTime(activity.endedAt)}`;
@@ -49,7 +52,8 @@ export function SessionBar({
 				className={cn(
 					'block',
 					'h-full w-full rounded-sm bg-[var(--session-color)] opacity-85 outline-none transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-ring',
-					isSelected && 'opacity-100 outline-2 outline-offset-1 outline-foreground',
+					// outline-none の後ろで線の種類を戻さないと、枠線が出ない
+					isSelected && 'opacity-100 outline-solid outline-2 outline-offset-1 outline-foreground',
 					isActive &&
 						'animate-pulse ring-2 ring-foreground/70 ring-offset-1 ring-offset-background',
 				)}
@@ -58,10 +62,11 @@ export function SessionBar({
 			<div
 				role="tooltip"
 				className={cn(
-					'pointer-events-none absolute top-full z-20',
+					'pointer-events-none absolute z-20',
+					tooltipAbove ? 'bottom-full mb-1' : 'top-full mt-1',
 					// 右半分のバーはツールチップを右揃えにして、ペインの外にはみ出さないようにする
 					segment.leftPercent > 50 ? 'right-0' : 'left-0',
-					'mt-1 hidden w-max max-w-64 rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-modal group-focus-within:block group-hover:block',
+					'hidden w-max max-w-64 rounded-md border bg-popover px-3 py-2 text-xs text-popover-foreground shadow-modal group-focus-within:block group-hover:block',
 				)}
 			>
 				<p className="font-bold">

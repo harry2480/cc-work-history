@@ -1,7 +1,8 @@
+import { ipcErrorMessage } from '@/lib/utils/ipc-error';
 import { toFilterDto, useFilterStore } from '@/stores/filter-store';
 import { useTimelineStore } from '@/stores/timeline-store';
 import type { ListSessionsRequest, SessionListDto } from '@shared/ipc-contract';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 type SessionListState = {
 	data: SessionListDto | null;
@@ -22,7 +23,11 @@ export function useSessionList(
 	const query = useFilterStore((s) => s.query);
 	const { key, direction } = sort;
 
+	// 条件を続けて変えたとき、古い応答で新しい表示を上書きしないようにする
+	const latestRequest = useRef(0);
+
 	const load = useCallback(async () => {
+		const request = ++latestRequest.current;
 		setState((prev) => ({ ...prev, loading: true }));
 		try {
 			const data = await window.api.listSessions({
@@ -31,9 +36,11 @@ export function useSessionList(
 				page,
 				pageSize,
 			});
-			setState({ data, loading: false, error: null });
+			if (request === latestRequest.current) setState({ data, loading: false, error: null });
 		} catch (error) {
-			setState({ data: null, loading: false, error: String(error) });
+			if (request === latestRequest.current) {
+				setState({ data: null, loading: false, error: ipcErrorMessage(error) });
+			}
 		}
 	}, [projectIds, tags, query, key, direction, page, pageSize]);
 

@@ -1,5 +1,3 @@
-import { DAY_MS } from '@/lib/utils/week';
-
 export type BarSegment = {
 	/** 何日目か（0 = 月曜） */
 	dayIndex: number;
@@ -21,7 +19,10 @@ export function toBarSegments(
 ): BarSegment[] {
 	const segments: BarSegment[] = [];
 	days.forEach((dayStart, dayIndex) => {
-		const dayEnd = days[dayIndex + 1] ?? new Date(dayStart.getTime() + DAY_MS);
+		// 最後の日の終わりも暦で求める（夏時間が終わる日は 25 時間ある）
+		const dayEnd =
+			days[dayIndex + 1] ??
+			new Date(dayStart.getFullYear(), dayStart.getMonth(), dayStart.getDate() + 1);
 		const dayLength = dayEnd.getTime() - dayStart.getTime();
 		const start = Math.max(activity.startedAt.getTime(), dayStart.getTime());
 		const end = Math.min(activity.endedAt.getTime(), dayEnd.getTime());
