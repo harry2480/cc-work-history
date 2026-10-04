@@ -1,6 +1,7 @@
 import { Activity } from './activity.model';
 import type { Result } from './result.model';
 import type { SessionLogEntry } from './session-log-entry.model';
+import { TodoList } from './todo-list.model';
 
 /** メッセージ間がこれより空いたら別の活動区間に分ける。進行中の判定にも使う */
 export const DEFAULT_IDLE_THRESHOLD_MS = 30 * 60 * 1000;
@@ -28,6 +29,8 @@ type SessionProps = {
 	/** 使われたモデル（初出順・重複なし） */
 	models: readonly string[];
 	activities: readonly Activity[];
+	/** 作業状況チェックリスト（ログ中の TodoWrite / Task 系ツールの最終状態）。省略時は空 */
+	todos?: TodoList;
 };
 
 type FromLogEntriesProps = {
@@ -48,7 +51,14 @@ export class Session {
 		if (props.inputTokens < 0 || props.outputTokens < 0 || props.messageCount < 0) {
 			return { success: false, error: 'NEGATIVE_COUNT' };
 		}
-		return { success: true, value: new Session({ ...props, models: [...props.models] }) };
+		return {
+			success: true,
+			value: new Session({
+				...props,
+				models: [...props.models],
+				todos: props.todos ?? TodoList.empty(),
+			}),
+		};
 	}
 
 	/** ログのメッセージからセッションを組み立てる。メッセージ間が閾値を超えて空いたら活動区間を分ける */
@@ -82,6 +92,7 @@ export class Session {
 			messageCount: sorted.length,
 			models: [...new Set(sorted.flatMap((e) => (e.model ? [e.model] : [])))],
 			activities: activities.value,
+			todos: Session.latestTodos(sorted),
 		});
 	}
 
@@ -118,6 +129,9 @@ export class Session {
 	get activities(): readonly Activity[] {
 		return this.props.activities;
 	}
+	get todos(): TodoList {
+		return this.props.todos ?? TodoList.empty();
+	}
 	/** 活動区間の合計時間（放置していた時間は含まない） */
 	get activeDurationMs(): number {
 		return sum(this.props.activities.map((a) => a.durationMs));
@@ -126,6 +140,11 @@ export class Session {
 	/** 最後のメッセージから閾値以内なら進行中 */
 	status(now: Date, idleThresholdMs = DEFAULT_IDLE_THRESHOLD_MS): SessionStatus {
 		return now.getTime() - this.props.endedAt.getTime() <= idleThresholdMs ? 'active' : 'completed';
+	}
+
+	/** 作業リストの操作を時刻順につなげて、セッション終了時点のチェックリストを組み立てる */
+	private static latestTodos(sorted: readonly SessionLogEntry[]): TodoList {
+		return TodoList.fromLogEvents(sorted.flatMap((e) => e.todoEvents ?? []));
 	}
 
 	private static splitIntoActivities(

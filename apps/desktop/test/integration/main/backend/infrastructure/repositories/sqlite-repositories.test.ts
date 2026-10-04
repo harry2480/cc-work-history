@@ -4,7 +4,10 @@ import { join } from 'node:path';
 import type Database from 'better-sqlite3';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { Project } from '../../../../../../src/main/backend/domain/models/project.model';
-import type { SessionLogEntry } from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
+import type {
+	LoggedTodo,
+	SessionLogEntry,
+} from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
 import { Session } from '../../../../../../src/main/backend/domain/models/session.model';
 import { migrationFiles } from '../../../../../../src/main/backend/infrastructure/db/migrations';
 import { openSqliteDatabase } from '../../../../../../src/main/backend/infrastructure/db/sqlite-connection';
@@ -28,7 +31,7 @@ function project(id = 'p1', path = '/repo/app'): Project {
 }
 
 /** 指定した時刻（月曜 0 時からの分）にメッセージがあるセッション */
-function session(id: string, minutes: number[], projectId = 'p1'): Session {
+function session(id: string, minutes: number[], projectId = 'p1', todos?: LoggedTodo[]): Session {
 	const entries: SessionLogEntry[] = minutes.map((m, i) => ({
 		timestamp: new Date(monday + m * MIN),
 		role: i % 2 === 0 ? 'user' : 'assistant',
@@ -36,6 +39,8 @@ function session(id: string, minutes: number[], projectId = 'p1'): Session {
 		inputTokens: 10,
 		outputTokens: 1,
 		cwd: '/repo/app',
+		todoEvents:
+			i === minutes.length - 1 && todos ? [{ kind: 'todo-write' as const, todos }] : undefined,
 	}));
 	const result = Session.fromLogEntries({ id, projectId, entries });
 	if (!result.success) throw new Error(result.error);
@@ -147,5 +152,86 @@ describe('SqliteSessionRepository', () => {
 
 	it('該当がなければ空を返す', () => {
 		expect(sessions.findByPeriod(week)).toEqual([]);
+	});
+});
+
+describe('SqliteSessionRepository の作業状況チェックリスト', () => {
+	const todoRows = () =>
+		db.prepare('SELECT session_id, seq, content, status FROM session_todos ORDER BY seq').all();
+	const statuses = (s: Session | undefined) => s?.todos.items.map((t) => [t.content, t.status]);
+
+	it('セッションと一緒に順番どおり保存し、ID で取得できる', () => {
+		sessions.save(
+			session('s1', [0, 10], 'p1', [
+				{ content: 'a', status: 'completed' },
+				{ content: 'b', status: 'in_progress' },
+			]),
+		);
+
+		expect(todoRows()).toEqual([
+			{ session_id: 's1', seq: 0, content: 'a', status: 'completed' },
+			{ session_id: 's1', seq: 1, content: 'b', status: 'in_progress' },
+		]);
+		expect(statuses(sessions.findById('s1')?.session)).toEqual([
+			['a', 'completed'],
+			['b', 'in_progress'],
+		]);
+	});
+
+	it('取り込み直すと丸ごと置き換え、空になったら行を消す', () => {
+		sessions.save(session('s1', [0, 10], 'p1', [{ content: 'a', status: 'pending' }]));
+		sessions.save(
+			session('s1', [0, 10, 20], 'p1', [
+				{ content: 'a', status: 'completed' },
+				{ content: 'c', status: 'pending' },
+			]),
+		);
+		expect(statuses(sessions.findById('s1')?.session)).toEqual([
+			['a', 'completed'],
+			['c', 'pending'],
+		]);
+
+		sessions.save(session('s1', [0, 10, 20, 30]));
+		expect(todoRows()).toEqual([]);
+		expect(statuses(sessions.findById('s1')?.session)).toEqual([]);
+	});
+
+	it('セッションごとに分けて保存し、詳細で返す。期間・検索の一覧では読まない', () => {
+		sessions.save(session('s1', [0], 'p1', [{ content: 'a', status: 'pending' }]));
+		sessions.save(session('s2', [60], 'p1', [{ content: 'b', status: 'completed' }]));
+		sessions.save(session('s3', [120]));
+
+		expect(['s1', 's2', 's3'].map((id) => statuses(sessions.findById(id)?.session))).toEqual([
+			[['a', 'pending']],
+			[['b', 'completed']],
+			[],
+		]);
+		expect(sessions.findByPeriod(week).map(({ session: s }) => statuses(s))).toEqual([[], [], []]);
+		const { items } = sessions.search({
+			sort: { key: 'startedAt', direction: 'asc' },
+			offset: 0,
+			limit: 10,
+		});
+		expect(items.map(({ session: s }) => statuses(s))).toEqual([[], [], []]);
+	});
+
+	it('チェックリストの保存に失敗したら、セッションの更新も巻き戻る', () => {
+		sessions.save(session('s1', [0, 10], 'p1', [{ content: 'a', status: 'pending' }]));
+		db.exec(
+			"CREATE TRIGGER fail_todo BEFORE INSERT ON session_todos BEGIN SELECT RAISE(ABORT, 'boom'); END",
+		);
+
+		expect(() =>
+			sessions.save(session('s1', [0, 10, 20], 'p1', [{ content: 'b', status: 'pending' }])),
+		).toThrow(/boom/);
+		expect(sessions.findById('s1')?.session.messageCount).toBe(2);
+		expect(todoRows()).toEqual([{ session_id: 's1', seq: 0, content: 'a', status: 'pending' }]);
+	});
+
+	it('セッションが消えたらチェックリストも消える', () => {
+		sessions.save(session('s1', [0], 'p1', [{ content: 'a', status: 'pending' }]));
+		db.prepare("DELETE FROM sessions WHERE id = 's1'").run();
+
+		expect(todoRows()).toEqual([]);
 	});
 });

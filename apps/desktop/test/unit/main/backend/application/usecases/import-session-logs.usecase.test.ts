@@ -127,6 +127,49 @@ describe('ImportSessionLogsUseCase', () => {
 		expect(repos.sessions.sessions.get('s2')?.messageCount).toBe(2);
 	});
 
+	it('ログ中の作業リストの最終状態を作業状況チェックリストとして取り込み、ログが変わったら更新する', async () => {
+		const todoMsg = (
+			min: number,
+			todos: { content: string; status: string }[],
+		): SessionLogEntry => ({
+			...msg(min),
+			role: 'assistant',
+			todoEvents: [{ kind: 'todo-write', todos }],
+		});
+		const { repos, run } = setup([]);
+		await run([
+			{
+				projectId: 'p1',
+				sessionId: 's1',
+				entries: [msg(0), todoMsg(1, [{ content: 'a', status: 'in_progress' }])],
+				modifiedAt: new Date(1),
+			},
+		]);
+		const statuses = () =>
+			repos.sessions.sessions.get('s1')?.todos.items.map((t) => [t.content, t.status]);
+		expect(statuses()).toEqual([['a', 'in_progress']]);
+
+		await run([
+			{
+				projectId: 'p1',
+				sessionId: 's1',
+				entries: [
+					msg(0),
+					todoMsg(1, [{ content: 'a', status: 'in_progress' }]),
+					todoMsg(2, [
+						{ content: 'a', status: 'completed' },
+						{ content: 'b', status: 'pending' },
+					]),
+				],
+				modifiedAt: new Date(2),
+			},
+		]);
+		expect(statuses()).toEqual([
+			['a', 'completed'],
+			['b', 'pending'],
+		]);
+	});
+
 	it('メッセージを含まないファイルは取り込まず、次回は読まない', async () => {
 		const { repos, run } = setup([{ projectId: 'p1', sessionId: 'empty', entries: [] }]);
 

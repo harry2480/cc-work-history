@@ -24,6 +24,7 @@ const detail: SessionDetailDto = {
 	summaryEditedManually: false,
 	tags: [{ name: 'docs', source: 'manual' }],
 	activities: [],
+	todos: [],
 };
 
 let writeText: ReturnType<typeof vi.fn<(text: string) => Promise<void>>>;

@@ -29,6 +29,7 @@ function detail(overrides: Partial<SessionDetailDto> = {}): SessionDetailDto {
 			{ name: 'auto-tag', source: 'auto' },
 		],
 		activities: [],
+		todos: [],
 		...overrides,
 	};
 }

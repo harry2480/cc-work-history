@@ -98,6 +98,23 @@ describe('SqliteMigrator', () => {
 	});
 });
 
+describe('0007_create_session_todos', () => {
+	it('既存のセッションにチェックリストを作るため、取り込み済みのログの記録を消して読み直させる', () => {
+		const before = Object.fromEntries(
+			Object.entries(migrationFiles).filter(([path]) => !/\/000[7-9]_|\/00[1-9]\d_/.test(path)),
+		);
+		SqliteMigrator.fromFiles(before).migrate(db);
+		db.prepare(
+			"INSERT INTO session_log_files (path, project_id, session_id, modified_at, size_bytes) VALUES ('/x.jsonl', 'p', 's', 0, 0)",
+		).run();
+
+		SqliteMigrator.fromFiles(migrationFiles).migrate(db);
+
+		expect(tables()).toContain('session_todos');
+		expect(db.prepare('SELECT COUNT(*) AS n FROM session_log_files').get()).toEqual({ n: 0 });
+	});
+});
+
 describe('openSqliteDatabase', () => {
 	it('親ディレクトリを作成し、WAL と外部キー制約を有効にする', () => {
 		expect(db.pragma('journal_mode', { simple: true })).toBe('wal');

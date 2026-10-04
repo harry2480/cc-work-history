@@ -6,7 +6,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { GetSessionDetailUseCase } from '../../../../../../src/main/backend/application/usecases/get-session-detail.usecase';
 import { GetTimelineUseCase } from '../../../../../../src/main/backend/application/usecases/get-timeline.usecase';
 import { Project } from '../../../../../../src/main/backend/domain/models/project.model';
-import type { SessionLogEntry } from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
+import type {
+	LoggedTodo,
+	SessionLogEntry,
+} from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
 import { Session } from '../../../../../../src/main/backend/domain/models/session.model';
 import { migrationFiles } from '../../../../../../src/main/backend/infrastructure/db/migrations';
 import { openSqliteDatabase } from '../../../../../../src/main/backend/infrastructure/db/sqlite-connection';
@@ -30,7 +33,7 @@ let db: Database.Database;
 let getTimeline: GetTimelineUseCase;
 let getSessionDetail: GetSessionDetailUseCase;
 
-function save(id: string, minutes: number[], models: string[] = []) {
+function save(id: string, minutes: number[], models: string[] = [], todos?: LoggedTodo[]) {
 	const entries: SessionLogEntry[] = minutes.map((m, i) => ({
 		timestamp: new Date(monday + m * MIN),
 		role: i % 2 === 0 ? 'user' : 'assistant',
@@ -38,6 +41,8 @@ function save(id: string, minutes: number[], models: string[] = []) {
 		inputTokens: 100,
 		outputTokens: 10,
 		cwd: '/Users/me/repo/app',
+		todoEvents:
+			i === minutes.length - 1 && todos ? [{ kind: 'todo-write' as const, todos }] : undefined,
 	}));
 	const session = Session.fromLogEntries({ id, projectId: 'p1', entries });
 	if (!session.success) throw new Error(session.error);
@@ -138,6 +143,28 @@ describe('loadSessionDetail', () => {
 			],
 		});
 		expect(JSON.parse(JSON.stringify(dto))).toEqual(dto);
+		expect(dto?.todos).toEqual([]);
+	});
+
+	it('作業状況チェックリスト（TodoWrite の最後の状態）を順番どおりに含める', () => {
+		save(
+			's1',
+			[0, 1],
+			[],
+			[
+				{ content: 'テストを書く', status: 'completed' },
+				{ content: '実装する', status: 'in_progress' },
+				{ content: 'レビューする', status: 'pending' },
+			],
+		);
+
+		const dto = loadSessionDetail(getSessionDetail, { id: 's1' }, new Date(monday + 300 * MIN));
+
+		expect(dto?.todos).toEqual([
+			{ content: 'テストを書く', status: 'completed' },
+			{ content: '実装する', status: 'in_progress' },
+			{ content: 'レビューする', status: 'pending' },
+		]);
 	});
 
 	it('見つからなければ null を返す', () => {

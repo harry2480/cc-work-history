@@ -176,6 +176,15 @@ export type SessionDetailDto = {
 	summaryEditedManually: boolean;
 	tags: SessionTagDto[];
 	activities: ActivityDto[];
+	/** 作業状況チェックリスト（ログ中の Claude Code の TodoWrite / TaskCreate・TaskUpdate の最終状態）。読み取り専用 */
+	todos: TodoItemDto[];
+};
+
+export type TodoStatusDto = 'pending' | 'in_progress' | 'completed';
+
+export type TodoItemDto = {
+	content: string;
+	status: TodoStatusDto;
 };
 
 export type SessionTagDto = {

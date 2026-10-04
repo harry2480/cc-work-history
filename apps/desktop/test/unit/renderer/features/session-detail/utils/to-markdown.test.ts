@@ -22,6 +22,7 @@ function detail(overrides: Partial<SessionDetailDto> = {}): SessionDetailDto {
 		summaryEditedManually: false,
 		tags: [],
 		activities: [],
+		todos: [],
 		...overrides,
 	};
 }

@@ -67,6 +67,13 @@ describe('ImportSessionLogsUseCase（実ファイル + SQLite）', () => {
 		});
 		expect(count('sessions')).toBe(2);
 		expect(count('projects')).toBe(2);
+		// ログ中の TodoWrite の最後の状態（不正な項目を除く）を保存する
+		expect(
+			sessions
+				.findById('11111111-1111-4111-8111-111111111111')
+				?.session.todos.items.map((t) => t.status),
+		).toEqual(['completed', 'in_progress', 'pending']);
+		expect(count('session_todos')).toBe(3);
 
 		expect(await useCase().execute()).toMatchObject({ imported: 0, unchanged: 2 });
 	});

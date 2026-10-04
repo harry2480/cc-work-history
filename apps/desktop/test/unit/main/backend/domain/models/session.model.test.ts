@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { SessionLogEntry } from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
+import type {
+	LoggedTodo,
+	LoggedTodoEvent,
+	SessionLogEntry,
+} from '../../../../../../src/main/backend/domain/models/session-log-entry.model';
 import {
 	DEFAULT_IDLE_THRESHOLD_MS,
 	Session,
@@ -116,6 +120,50 @@ describe('Session.fromLogEntries', () => {
 	});
 });
 
+describe('Session.fromLogEntries の作業状況チェックリスト', () => {
+	const todos = (session: Session) => session.todos.items.map((t) => [t.content, t.status]);
+	const write = (items: LoggedTodo[]): LoggedTodoEvent => ({ kind: 'todo-write', todos: items });
+
+	it('メッセージを時刻順に並べてから操作をたどる', () => {
+		const session = build([
+			entry(20, {
+				role: 'assistant',
+				todoEvents: [write([{ content: 'b', status: 'completed' }])],
+			}),
+			entry(0),
+			entry(10, {
+				role: 'assistant',
+				todoEvents: [
+					write([
+						{ content: 'a', status: 'in_progress' },
+						{ content: 'b', status: 'pending' },
+					]),
+				],
+			}),
+			entry(30),
+		]);
+
+		expect(todos(session)).toEqual([['b', 'completed']]);
+	});
+
+	it('Task 系の操作は別のメッセージにまたがってたどる', () => {
+		const session = build([
+			entry(0, { todoEvents: [{ kind: 'task-create', taskId: '1', subject: 'a' }] }),
+			entry(5, { todoEvents: [{ kind: 'task-create', taskId: '2', subject: 'b' }] }),
+			entry(10, { todoEvents: [{ kind: 'task-update', taskId: '1', status: 'completed' }] }),
+		]);
+
+		expect(todos(session)).toEqual([
+			['a', 'completed'],
+			['b', 'pending'],
+		]);
+	});
+
+	it('作業リストの操作がなければ空にする', () => {
+		expect(todos(build([entry(0), entry(10, { role: 'assistant' })]))).toEqual([]);
+	});
+});
+
 describe('Session.status', () => {
 	const session = build([entry(0), entry(10)]);
 	const endedAt = base + 10 * MIN;
@@ -153,6 +201,12 @@ describe('Session.create', () => {
 
 	it('保存済みの値から復元できる', () => {
 		expect(Session.create(props).success).toBe(true);
+	});
+
+	it('作業状況チェックリストを省略したら空にする', () => {
+		const result = Session.create(props);
+
+		expect(result.success && result.value.todos.items).toEqual([]);
 	});
 
 	it('終了が開始より前ならエラーにする', () => {

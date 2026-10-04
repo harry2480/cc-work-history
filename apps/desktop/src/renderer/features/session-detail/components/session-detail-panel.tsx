@@ -8,6 +8,7 @@ import { AnnotationSection } from './annotation-section';
 import { CopyMarkdownButton } from './copy-markdown-button';
 import { ResumeSessionButton } from './resume-session-button';
 import { SessionResultSection } from './session-result-section';
+import { TodoChecklistSection } from './todo-checklist-section';
 
 export function SessionDetailPanel() {
 	const sessionId = useTimelineStore((s) => s.selectedSessionId);
@@ -63,6 +64,8 @@ function SessionDetail({ detail }: { detail: SessionDetailDto }) {
 			</header>
 
 			<AnnotationSection key={detail.id} detail={detail} />
+
+			<TodoChecklistSection todos={detail.todos} />
 
 			<Section title="基本情報">
 				<Field label="開始">{formatDateTime(startedAt)}</Field>
