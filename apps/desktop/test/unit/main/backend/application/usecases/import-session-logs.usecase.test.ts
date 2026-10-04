@@ -85,7 +85,14 @@ describe('ImportSessionLogsUseCase', () => {
 
 		const result = await run();
 
-		expect(result).toEqual({ scanned: 3, imported: 3, unchanged: 0, empty: 0, failures: [] });
+		expect(result).toEqual({
+			scanned: 3,
+			imported: 3,
+			unchanged: 0,
+			empty: 0,
+			failures: [],
+			importedSessions: expect.any(Array),
+		});
 		expect([...repos.sessions.sessions.keys()]).toEqual(['s1', 's2', 's3']);
 		expect(repos.projects.findById('p1')?.path).toBe('/repo/app');
 		// プロジェクトの最終活動日時は最も新しいセッションの終了時刻
@@ -164,5 +171,27 @@ describe('ImportSessionLogsUseCase', () => {
 		await run();
 
 		expect(repos.projects.findById('-Users-me-x')?.path).toBe('-Users-me-x');
+	});
+});
+
+describe('ImportSessionLogsUseCase（対象の絞り込みと結果）', () => {
+	it('projectIds を指定するとそのプロジェクトだけを取り込み、取り込んだセッションを返す', async () => {
+		const { repos, run } = setup([]);
+		const stub = new StubSessionLogAdapter([
+			{ projectId: 'p1', sessionId: 's1', entries: [msg(0), msg(10)] },
+			{ projectId: 'p2', sessionId: 's2', entries: [msg(5)] },
+		]);
+		const result = await new ImportSessionLogsUseCase(
+			stub,
+			repos.projects,
+			repos.sessions,
+			repos.files,
+		).execute({ projectIds: ['p1'] });
+
+		expect(result.scanned).toBe(1);
+		expect(result.importedSessions).toEqual([
+			{ id: 's1', startedAt: new Date(t0), endedAt: new Date(t0 + 10 * 60_000) },
+		]);
+		expect([...repos.sessions.sessions.keys()]).toEqual(['s1']);
 	});
 });
