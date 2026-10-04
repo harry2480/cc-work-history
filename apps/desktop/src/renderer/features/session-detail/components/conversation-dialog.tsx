@@ -11,8 +11,9 @@ import { cn } from '@/lib/utils/cn';
 import { formatInteger } from '@/lib/utils/format';
 import type { ConversationMessageDto } from '@shared/ipc-contract';
 import { MessagesSquare } from 'lucide-react';
-import { useState } from 'react';
+import { type RefObject, useRef, useState } from 'react';
 import { useSessionConversation } from '../api/use-session-conversation';
+import { useNearViewport } from '../hooks/use-near-viewport';
 import { ConversationMarkdown } from './conversation-markdown';
 
 const ROLE_LABELS = { user: 'あなた', assistant: 'Claude' } as const;
@@ -58,6 +59,7 @@ export function ConversationDialog({
 
 function ConversationBody({ sessionId }: { sessionId: string }) {
 	const { data, loading, error } = useSessionConversation(sessionId);
+	const listRef = useRef<HTMLOListElement>(null);
 
 	if (error) {
 		return (
@@ -82,6 +84,7 @@ function ConversationBody({ sessionId }: { sessionId: string }) {
 				{data.truncated && '（古い発言や長い発言の一部を省いています）'}
 			</p>
 			<ol
+				ref={listRef}
 				// biome-ignore lint/a11y/noNoninteractiveTabindex: キーボードでスクロールできるようにする
 				tabIndex={0}
 				aria-label="会話の発言"
@@ -90,25 +93,37 @@ function ConversationBody({ sessionId }: { sessionId: string }) {
 				{data.messages.map((message, index) => (
 					// 発言は並び替わらず、同じ文の発言もあるため位置をキーにする
 					// biome-ignore lint/suspicious/noArrayIndexKey: 読み取り専用の固定リスト
-					<MessageItem key={index} message={message} />
+					<MessageItem key={index} message={message} listRef={listRef} />
 				))}
 			</ol>
 		</div>
 	);
 }
 
-function MessageItem({ message }: { message: ConversationMessageDto }) {
+function MessageItem({
+	message,
+	listRef,
+}: {
+	message: ConversationMessageDto;
+	listRef: RefObject<HTMLOListElement | null>;
+}) {
 	const isUser = message.role === 'user';
+	// Markdown の解析は重いので、画面に近づくまでは平文で出す（長い会話でも開いた直後に固まらない）
+	const [ref, near] = useNearViewport<HTMLLIElement>(listRef);
 	return (
-		<li className={cn('flex flex-col gap-1 [content-visibility:auto]', isUser && 'items-end')}>
+		<li
+			ref={ref}
+			className={cn('flex flex-col gap-1 [content-visibility:auto]', isUser && 'items-end')}
+		>
 			<span className="text-xs font-bold text-muted-foreground">{ROLE_LABELS[message.role]}</span>
 			<div
-				className={cn(
-					'min-w-0 max-w-full rounded-card px-3 py-2',
-					isUser ? 'bg-muted [&_code]:bg-background [&_pre]:bg-background' : 'border',
-				)}
+				className={cn('min-w-0 max-w-full rounded-card px-3 py-2', isUser ? 'bg-muted' : 'border')}
 			>
-				<ConversationMarkdown text={message.text} preserveLineBreaks={isUser} />
+				{near ? (
+					<ConversationMarkdown text={message.text} isUser={isUser} />
+				) : (
+					<p className="whitespace-pre-wrap break-words text-sm leading-relaxed">{message.text}</p>
+				)}
 			</div>
 		</li>
 	);

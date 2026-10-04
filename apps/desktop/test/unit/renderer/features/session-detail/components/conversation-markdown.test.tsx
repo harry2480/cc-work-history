@@ -51,10 +51,41 @@ describe('ConversationMarkdown', () => {
 		expect(container.textContent).toContain('[画像: 図]');
 	});
 
-	it('ユーザーの発言は改行をそのまま改行にする', () => {
+	it('ユーザーの発言は改行をそのまま改行にし、Claude の発言では Markdown の規則に従う', () => {
+		const user = render(<ConversationMarkdown text={'一行目\n二行目'} isUser />);
+		expect(user.container.querySelector('br')).not.toBeNull();
+		cleanup();
+		const assistant = render(<ConversationMarkdown text={'一行目\n二行目'} />);
+		expect(assistant.container.querySelector('br')).toBeNull();
+	});
+
+	it('「5~10秒」のような範囲の表記は打ち消し線にしない', () => {
 		const { container } = render(
-			<ConversationMarkdown text={'一行目\n二行目'} preserveLineBreaks />,
+			<ConversationMarkdown text={'処理は5~10秒、待機は20~30秒、~~取り消し~~'} />,
 		);
-		expect(container.querySelector('br')).not.toBeNull();
+		expect(container.querySelectorAll('del')).toHaveLength(1);
+		expect(container.querySelector('del')?.textContent).toBe('取り消し');
+		expect(container.textContent).toContain('5~10秒');
+	});
+
+	it('URL の直書きや javascript: のリンクも、押せる要素にしない', () => {
+		const { container } = render(
+			<ConversationMarkdown text={'https://example.com と [危険](javascript:alert(1))'} />,
+		);
+		expect(container.querySelector('a')).toBeNull();
+		expect(container.innerHTML).not.toContain('javascript:');
+	});
+
+	it('脚注の id は発言をまたいで重ならない', () => {
+		const text = '本文[^1]\n\n[^1]: 注';
+		const { container } = render(
+			<>
+				<ConversationMarkdown text={text} />
+				<ConversationMarkdown text={text} />
+			</>,
+		);
+		const ids = [...container.querySelectorAll('[id]')].map((el) => el.id);
+		expect(ids.length).toBeGreaterThan(0);
+		expect(new Set(ids).size).toBe(ids.length);
 	});
 });
