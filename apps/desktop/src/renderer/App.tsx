@@ -1,27 +1,25 @@
-import { useEffect, useState } from 'react';
-import type { PingResult } from '../shared/ipc-contract';
+import { AppShell } from '@/components/layouts/app-shell';
+import { DashboardPage } from '@/pages/dashboard-page';
+import type { PageKey } from '@/pages/page-key';
+import { SessionListPage } from '@/pages/session-list-page';
+import { SettingsPage } from '@/pages/settings-page';
+import { TimelinePage } from '@/pages/timeline-page';
+import { useState } from 'react';
+
+const pages: Record<PageKey, () => JSX.Element> = {
+	timeline: TimelinePage,
+	dashboard: DashboardPage,
+	'session-list': SessionListPage,
+	settings: SettingsPage,
+};
 
 export function App() {
-	const [ping, setPing] = useState<PingResult | null>(null);
-	const [error, setError] = useState<string | null>(null);
-
-	useEffect(() => {
-		window.api
-			.ping()
-			.then(setPing)
-			.catch((e: unknown) => setError(String(e)));
-	}, []);
+	const [current, setCurrent] = useState<PageKey>('timeline');
+	const Page = pages[current];
 
 	return (
-		<main>
-			<h1>CC Work History</h1>
-			<p>Claude Code の作業履歴をカレンダー／タイムラインで可視化します。</p>
-			{ping && (
-				<p>
-					main プロセスと接続済み（{ping.message} / Electron {ping.electronVersion}）
-				</p>
-			)}
-			{error && <p role="alert">main プロセスとの接続に失敗しました: {error}</p>}
-		</main>
+		<AppShell current={current} onNavigate={setCurrent}>
+			<Page />
+		</AppShell>
 	);
 }
