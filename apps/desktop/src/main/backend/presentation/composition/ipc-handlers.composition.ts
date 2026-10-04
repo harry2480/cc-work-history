@@ -5,6 +5,7 @@ import { GenerateSessionSummaryUseCase } from '../../application/usecases/genera
 import { GetAppSettingsUseCase } from '../../application/usecases/get-app-settings.usecase';
 import { GetDashboardUseCase } from '../../application/usecases/get-dashboard.usecase';
 import { GetFilterOptionsUseCase } from '../../application/usecases/get-filter-options.usecase';
+import { GetProjectVisibilityUseCase } from '../../application/usecases/get-project-visibility.usecase';
 import { GetSessionConversationUseCase } from '../../application/usecases/get-session-conversation.usecase';
 import { GetSessionDetailUseCase } from '../../application/usecases/get-session-detail.usecase';
 import { GetSessionResultUseCase } from '../../application/usecases/get-session-result.usecase';
@@ -13,6 +14,7 @@ import type { ImportResult } from '../../application/usecases/import-session-log
 import { ListSessionsUseCase } from '../../application/usecases/list-sessions.usecase';
 import { ResumeSessionUseCase } from '../../application/usecases/resume-session.usecase';
 import { UpdateIdleThresholdUseCase } from '../../application/usecases/update-idle-threshold.usecase';
+import { UpdateProjectVisibilityUseCase } from '../../application/usecases/update-project-visibility.usecase';
 import { UpdateSessionAnnotationUseCase } from '../../application/usecases/update-session-annotation.usecase';
 import { SqliteActivityStatsRepository } from '../../infrastructure/repositories/sqlite-activity-stats.repository';
 import { SqliteAppSettingsRepository } from '../../infrastructure/repositories/sqlite-app-settings.repository';
@@ -20,11 +22,13 @@ import { SqliteProjectRepository } from '../../infrastructure/repositories/sqlit
 import { SqliteSessionAnnotationRepository } from '../../infrastructure/repositories/sqlite-session-annotation.repository';
 import { SqliteSessionResultRepository } from '../../infrastructure/repositories/sqlite-session-result.repository';
 import { SqliteSessionRepository } from '../../infrastructure/repositories/sqlite-session.repository';
+import { updateProjectVisibility } from '../actions/project-visibility.action';
 import { updateSessionAnnotation } from '../actions/session-annotation.action';
 import { resumeSession } from '../actions/session-resume.action';
 import { generateSessionSummary } from '../actions/session-summary.action';
 import { updateIdleThreshold } from '../actions/settings.action';
 import { loadDashboard } from '../loaders/dashboard.loader';
+import { loadProjectVisibility } from '../loaders/project-visibility.loader';
 import { loadSessionConversation } from '../loaders/session-conversation.loader';
 import { loadSessionList } from '../loaders/session-list.loader';
 import { loadSessionResult } from '../loaders/session-result.loader';
@@ -65,10 +69,8 @@ export function registerIpcHandlers(
 		idleThresholdMs,
 	);
 	const updateAnnotation = new UpdateSessionAnnotationUseCase(annotationRepository);
-	const getFilterOptions = new GetFilterOptionsUseCase(
-		new SqliteProjectRepository(db),
-		annotationRepository,
-	);
+	const projectRepository = new SqliteProjectRepository(db);
+	const getFilterOptions = new GetFilterOptionsUseCase(projectRepository, annotationRepository);
 
 	ipcMain.handle(
 		IPC_CHANNELS.ping,
@@ -136,6 +138,14 @@ export function registerIpcHandlers(
 	);
 	ipcMain.handle(IPC_CHANNELS.getSessionConversation, (_event, request: unknown) =>
 		loadSessionConversation(getSessionConversation, request),
+	);
+	const getProjectVisibility = new GetProjectVisibilityUseCase(projectRepository);
+	ipcMain.handle(IPC_CHANNELS.getProjectVisibility, () =>
+		loadProjectVisibility(getProjectVisibility),
+	);
+	const updateProjectVisibilityUseCase = new UpdateProjectVisibilityUseCase(projectRepository);
+	ipcMain.handle(IPC_CHANNELS.updateProjectVisibility, (_event, request: unknown) =>
+		updateProjectVisibility(updateProjectVisibilityUseCase, request),
 	);
 }
 

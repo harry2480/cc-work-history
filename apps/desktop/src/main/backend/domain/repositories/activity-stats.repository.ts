@@ -18,7 +18,7 @@ export type ProjectStats = {
 	totalTokens: number;
 };
 
-/** ダッシュボード用の集計。件数が多くても速いよう SQL で集計する */
+/** ダッシュボード用の集計。件数が多くても速いよう SQL で集計する。非表示のプロジェクトは数えない */
 export interface ActivityStatsRepository {
 	summarize(period: Period): PeriodStats;
 	/** 区切りごとの集計（日別など）。入力と同じ順で返す */

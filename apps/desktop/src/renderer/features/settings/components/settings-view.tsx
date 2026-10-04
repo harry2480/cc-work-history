@@ -3,6 +3,7 @@ import { useSettings } from '../api/use-settings';
 import { ColorSection } from './color-section';
 import { DataPathsSection } from './data-paths-section';
 import { IdleThresholdSection } from './idle-threshold-section';
+import { ProjectVisibilitySection } from './project-visibility-section';
 import { ThemeSection } from './theme-section';
 
 type Props = {
@@ -21,6 +22,7 @@ export function SettingsView({ filterOptions }: Props) {
 				</p>
 			)}
 			{data && <DataPathsSection settings={data} />}
+			<ProjectVisibilitySection />
 			<ThemeSection />
 			<ColorSection projects={filterOptions.projects} tags={filterOptions.tags} />
 			{data && <IdleThresholdSection settings={data} onSave={updateIdleThreshold} />}

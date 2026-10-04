@@ -34,6 +34,20 @@ export class SqliteProjectRepository implements ProjectRepository {
 			.map((row) => SqliteProjectRepository.toModel(row));
 	}
 
+	findHiddenIds(): string[] {
+		return this.db
+			.prepare<[], { id: string }>('SELECT id FROM projects WHERE hidden = 1 ORDER BY id')
+			.all()
+			.map((row) => row.id);
+	}
+
+	setHidden(projectId: string, hidden: boolean): boolean {
+		const result = this.db
+			.prepare<[number, string]>('UPDATE projects SET hidden = ? WHERE id = ?')
+			.run(hidden ? 1 : 0, projectId);
+		return result.changes > 0;
+	}
+
 	static toModel(row: ProjectRow): Project {
 		const result = Project.create({
 			id: row.id,

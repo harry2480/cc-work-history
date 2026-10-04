@@ -29,6 +29,12 @@ class InMemoryProjectRepository implements ProjectRepository {
 	findAll() {
 		return [...this.projects.values()];
 	}
+	findHiddenIds(): never {
+		throw new Error('not used');
+	}
+	setHidden(): never {
+		throw new Error('not used');
+	}
 }
 
 class InMemorySessionRepository implements SessionRepository {

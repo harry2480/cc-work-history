@@ -62,7 +62,16 @@ export class SqliteSessionAnnotationRepository implements SessionAnnotationRepos
 
 	findAllTagNames(): string[] {
 		return this.db
-			.prepare<[], { name: string }>('SELECT name FROM tags ORDER BY name COLLATE NOCASE')
+			.prepare<[], { name: string }>(
+				`SELECT t.name FROM tags t
+				WHERE EXISTS (
+					SELECT 1 FROM session_tags st
+					JOIN sessions s ON s.id = st.session_id
+					JOIN projects p ON p.id = s.project_id
+					WHERE st.tag_id = t.id AND p.hidden = 0
+				)
+				ORDER BY t.name COLLATE NOCASE`,
+			)
 			.all()
 			.map((row) => row.name);
 	}
