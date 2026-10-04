@@ -27,9 +27,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "^1.9",
 		"knip": "^5.85.0",
-		"simple-git-hooks": "^2.14.0",
-		"supabase": "^2.118.0",
-		"vercel": "^50.33.1"
+		"simple-git-hooks": "^2.14.0"
 	},
 	"pnpm": {
 		"onlyBuiltDependencies": [
@@ -39,9 +37,7 @@
 			"esbuild",
 			"prisma",
 			"sharp",
-			"simple-git-hooks",
-			"supabase"
-		],
-		"ignoredBuiltDependencies": ["supabase"]
+			"simple-git-hooks"
+		]
 	}
 }

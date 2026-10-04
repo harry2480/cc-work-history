@@ -9,7 +9,6 @@ dist/
 *.tsbuildinfo
 .turbo/
 coverage/
-.vercel/
 .terraform/
 playwright-report/
 test-results/
@@ -17,9 +16,4 @@ looper/output/
 .playwright-mcp/
 settings.local.json
 
-# Supabase local
-supabase/.temp/
-supabase/.branches/
-
 .vscode/settings.json
-.vercel

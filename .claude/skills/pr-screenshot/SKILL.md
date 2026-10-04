@@ -73,9 +73,6 @@ feature名からページを特定する対応表:
 worktreeのパスを特定し（現在のディレクトリが worktree であることを前提）、devサーバーを起動する:
 
 ```bash
-# Supabase が起動中か確認
-npx supabase status 2>&1 | head -5
-
 # シードデータを投入（新カラム等を反映）
 pnpm seed
 
@@ -99,14 +96,7 @@ curl -s -o /dev/null -w "%{http_code}" http://localhost:3000 || curl -s -o /dev/
 
 ### Step 3: スクリーンショット対象URLの構築
 
-seed投入後、DBから議案IDを取得してURLを構築する:
-
-```bash
-# 公開済み議案のIDを1件取得
-npx supabase db query "SELECT id::text FROM bills WHERE publish_status = 'published' LIMIT 1;"
-```
-
-取得したIDを使い、Step 1 で特定したページのURLリストを作る。
+seed投入後、必要ならDBから対象データのIDを取得し、Step 1 で特定したページのURLリストを作る。
 
 admin ページが対象の場合:
 ```bash
@@ -226,7 +216,6 @@ rm -rf /tmp/pr-screenshots
 
 - `agent-browser` CLI がインストール済みであること
 - `npx wrangler` が認証済みであること（未認証の場合、ユーザーに `! npx wrangler login` を促す）
-- Supabase がローカルで起動中であること（`npx supabase start`）
 - seed データには固定IDがないため、DBクエリでIDを取得する
 - Next.js の `unstable_cache` により、seed直後でもキャッシュが効く場合がある。`.next` フォルダ削除 + サーバー再起動で解決する
 - admin ページは認証が必要。seed データの `admin@example.com / admin123456` でログインする

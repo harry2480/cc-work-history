@@ -1,87 +1,86 @@
-# スターターテンプレート
+# CC Work History
 
-Claude Code や GitHub Copilot などの AI エージェントへの指示だけで高品質なプロダクトを構築できるスターターキットです。
-また、本リポジトリは**プロジェクト横断で利用可能なドキュメントテンプレート**や**AIエージェント向けの共通スキル・コマンド**を集約するハブとしても機能しています。
+Claude Code のローカルセッションログを解析し、作業履歴をカレンダー／タイムライン形式で可視化するデスクトップアプリケーションです。
+Claude Code と普段どおりチャットするだけで、セッションの概要やタグが自動生成・更新され、「いつ・何を・どのくらい作業したか」を一目で把握できます。
 
-## ハーネスエンジニアリングとは
+> **開発状況**: 要件定義・設計ドキュメントを作成した段階です。リポジトリのコードはまだスターターテンプレート（Next.js / `apps/webapp/`）のままで、Electron 構成への移行は [実装計画](docs/実装計画.md) の Phase 0 で行います。
 
-このスターターキットは、**ハーネスエンジニアリング**の考え方に基づいて設計されています。
+## 主な機能
 
-ハーネスエンジニアリングとは、AIエージェントが正しく力を発揮できるように情報やルールを整えることを指します。`CLAUDE.md` による共通ルールの注入、Skills（スラッシュコマンド）による定型作業の標準化、dependency-cruiser による依存方向の機械的な検証など、**複数のガードレールを多重に敷くことで、AIが書くコードの品質を構造的に担保**します。
+- `~/.claude/projects/` 配下の JSONL ログを自動検出・解析し、ローカルの SQLite にキャッシュ
+- 週単位のタイムラインで、セッションを色付きの水平バーとして表示（色分けはプロジェクト／タグ／ステータスで切り替え）
+- ファイル監視によるリアルタイム更新と、進行中セッションの強調表示
+- Claude CLI を使ったセッション概要・タグの自動生成（追加の API キー不要）
+- セッション詳細パネル、フィルタ・検索、ダッシュボード、セッション再開（`claude -r` 相当）
+- 完全ローカル動作。外部へのデータ送信なし
 
-これにより、AIエージェントを複数セッション並列で回しても、設計が崩れにくい開発が可能になります。
+詳細は [要件定義](docs/要件定義.md) と [サービスコンセプト](docs/サービスコンセプト.md) を参照してください。
 
-詳しい背景と実践事例については、以下の記事をご覧ください。
+## 技術スタック
 
-### このスターターキットに組み込まれたガードレール
-
-| ガードレール | 仕組み |
+| 分類 | 技術 |
 |---|---|
-| **設計ルールの注入** | `CLAUDE.md` や `docs/templates/` 配下にアーキテクチャ・命名規約・依存ルールを明文化し、AIにコンテキストを供給 |
-| **共通Skillsとプロンプト** | `.claude/skills/` や `.claude/commands/` にプロジェクト横断の定型作業コマンドを集約し、品質のばらつきを抑制 |
-| **依存方向の機械的検証** | dependency-cruiser で「domain は外部に依存しない」等のルールを CI で自動チェック |
-| **レイヤー別テスト戦略** | domain/application は Unit テスト、infrastructure は Integration テスト。テスト方針もドキュメント化 |
-| **統合CI/CD** | `.github/workflows/` に集約されたワークフローにより、型チェックやlint、テストを一元的に自動化 |
+| アプリ形態 | Electron |
+| フロントエンド | React 18 + TypeScript + Vite |
+| UI | Tailwind CSS + shadcn/ui |
+| 状態管理 | Zustand |
+| データ保存 | SQLite（better-sqlite3） |
+| ファイル監視 | chokidar |
+| Claude 連携 | Claude CLI（子プロセス呼び出し） |
+| ビルド・配布 | electron-builder |
+| 品質 | Vitest + dependency-cruiser + Biome |
 
-## テンプレートとドキュメント管理
+## プロジェクト構成（予定）
 
-本リポジトリの `docs/` には、新しいプロジェクトを立ち上げる際や新しい機能を設計する際にそのまま使える汎用テンプレートが用意されています。
-AIに「`docs/` の〇〇を使って新しい機能の要件定義をして」と指示するだけで、ベストプラクティスに基づいた仕様書が生成されます。
-
-**収録テンプレートの例:**
-- アーキテクチャ設計規約
-- フロントエンド規約
-- スタイルガイド
-- 品質チェック・テスト規約
-- 実装計画（プロジェクト設計時のチェックリスト）
-- AIチャット機能要件定義
-- AIエージェント運用ガイド
-
-## 技術スタック (標準構成)
-
-- Next.js 15 (App Router) + Vercel
-- Supabase PostgreSQL + Prisma
-- shadcn/ui + Tailwind CSS
-- vitest + dependency-cruiser
-- Biome (lint/format)
-- AIツール: Vercel AI SDK, Streamdown
-
-## はじめかた
-
-### セットアップ
-
-AIエージェント（Claude Code 等）を開き、`/init-pj` を実行してください。前提ツールのインストールからDB構築まで自動で行います。
-
-## 使い方
-
-AIに自然言語で指示するだけで、テンプレートやルールに沿った機能追加が可能です。
-
-Issueから実装・修復・PRまでを反復するLoop Engineeringを使う場合は、[運用ガイド](docs/loop-engineering.md)に従ってGitHub側のラベルと保護設定を用意してください。Loopは任意で、通常の開発フローにも引き続き利用できます。
-
-**コマンド例:**
-```
-「ユーザー管理機能を作って」
-「お気に入り機能を追加して」
-「/articles ページを作って」
-「○○テーブルにstatusカラムを追加して」
-「このエラーを直して: [エラーメッセージ]」
+```text
+cc-work-history/
+├── .claude/                # AI エージェント用の Skills と Commands
+├── .github/workflows/      # CI（lint・型チェック・テスト・依存方向チェック）
+├── docs/                   # 要件定義・設計規約
+└── apps/desktop/
+    ├── src/
+    │   ├── main/           # Electron main プロセス
+    │   │   └── backend/    # DDD 4層（domain / application / infrastructure / presentation）
+    │   ├── preload/        # contextBridge で window.api を公開
+    │   ├── renderer/       # React UI
+    │   └── shared/         # IPC の型定義
+    └── test/               # unit / integration / e2e
 ```
 
-## 開発コマンド一覧
+## 開発コマンド
 
 | コマンド | 内容 |
 |---|---|
 | `pnpm dev` | 開発サーバー起動 |
-| `pnpm verify` | 品質チェック（lint → typecheck → test → depcruise） |
+| `pnpm verify` | 品質チェック（lint → typecheck → unit test → depcruise） |
 | `pnpm test:unit` | Unit テスト実行 |
-| `pnpm lint:fix` | 自動フォーマット・Lint適用 |
-| `pnpm db:migrate` | DBマイグレーション |
-| `pnpm merge [PR]` | PR マージ＋ブランチ削除・リモート追跡ブランチ削除を自動化 |
+| `pnpm test:integration` | Integration テスト実行 |
+| `pnpm lint:fix` | 自動フォーマット・Lint 適用 |
+| `pnpm merge [PR]` | PR マージ＋ブランチ削除・リモート追跡ブランチ削除 |
 | `pnpm knip` | 未使用コード検出 |
 
-### PR マージワークフロー
+Phase 0 の移行が終わるまで、各コマンドはスターター（`apps/webapp/`）に対して動きます。
 
-`pnpm merge` コマンドで PR マージからブランチクリーンアップまでを一括実行できます：
+## ドキュメント
+
+| ドキュメント | 内容 |
+|---|---|
+| [要件定義](docs/要件定義.md) | 機能要件・非機能要件・技術選定 |
+| [サービスコンセプト](docs/サービスコンセプト.md) | サービス概要と期待される効果 |
+| [実装計画](docs/実装計画.md) | Phase 0〜3 の作業分解と未決事項 |
+| [アーキテクチャ](docs/アーキテクチャ.md) | main プロセスの DDD 4層と IPC の設計規約 |
+| [フロントエンドアーキテクチャ](docs/フロントエンドアーキテクチャ.md) / [フロントエンド規約](docs/フロントエンド規約.md) | renderer の構成と規約 |
+| [リポジトリ層設計規約](docs/リポジトリ層設計規約.md) | SQLite アクセスの規約 |
+| [インフラストラクチャ規約](docs/インフラストラクチャ規約.md) | ビルド・配布・データ保存 |
+| [品質チェック・テスト規約](docs/品質チェック・テスト規約.md) / [テストガイドライン](docs/テストガイドライン.md) | 品質チェックとテスト方針 |
+| [スタイルガイド](docs/スタイルガイド.md) | Tailwind CSS のスタイルルール |
+| [Loop Engineering](docs/loop-engineering.md) | Issue → 実装 → PR を反復する運用（任意） |
+
+## AI エージェントでの開発
+
+このリポジトリは Claude Code などの AI エージェントで開発することを前提に、`CLAUDE.md` / `AGENTS.md` に設計ルールを、`.claude/` に定型作業のコマンドをまとめています。依存方向は dependency-cruiser で機械的にチェックします。
+
+### PR マージワークフロー
 
 ```bash
 # 現在のブランチの PR をマージ
@@ -89,36 +88,4 @@ pnpm merge
 
 # 指定した PR をマージ
 pnpm merge 42
-
-# PR URL でマージ
-pnpm merge https://github.com/owner/repo/pull/42
-```
-
-このコマンドは Claude Code でも Codex などの他のエディタでも使用でき、PR マージ時の手作業を削減できます。
-
-## プロジェクト構成
-
-```text
-starter-templete/
-├── .claude/                # プロジェクト横断のAI SkillsとCommands
-├── .github/workflows/      # 統合CI/CDワークフロー（型チェック、ビルド、テスト等）
-├── docs/                   # プロジェクト横断で使えるドキュメント・定義テンプレート
-└── apps/webapp/src/        # メインアプリケーション
-    ├── app/                # ページ（Next.js App Router）
-    ├── backend/            # バックエンド全体
-    │   ├── application/    # ユースケース
-    │   ├── domain/         # ビジネスルール（モデル、インターフェース）
-    │   ├── infrastructure/ # DB・外部API実装
-    │   └── presentation/   # DI組み立て、データ取得、Server Actions
-    ├── frontend/           # フロントエンド・UI全体
-    └── lib/                # 共有ライブラリ
-```
-
-## サンプル実装について
-
-初期状態では Claude API を使ったジョーク生成機能がサンプルとして含まれています。
-`ANTHROPIC_API_KEY` を設定すると API 経由で動作し、未設定の場合は Stub（固定値）で動作します。
-
-```bash
-echo 'ANTHROPIC_API_KEY="your-api-key"' >> apps/webapp/.env.local
 ```
