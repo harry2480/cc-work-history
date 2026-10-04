@@ -1,0 +1,41 @@
+#!/usr/bin/env node
+// テスト用の偽の Claude CLI。FAKE_CLAUDE_MODE で振る舞いを切り替え、
+// FAKE_CLAUDE_RECORD に受け取った引数と標準入力を書き出す
+const fs = require('node:fs');
+
+let stdin = '';
+process.stdin.on('data', (chunk) => {
+	stdin += chunk;
+});
+process.stdin.on('end', () => {
+	if (process.env.FAKE_CLAUDE_RECORD) {
+		fs.writeFileSync(process.env.FAKE_CLAUDE_RECORD, JSON.stringify({ args: process.argv.slice(2), stdin }));
+	}
+	const mode = process.env.FAKE_CLAUDE_MODE ?? 'ok';
+	const result = (structured) =>
+		JSON.stringify({ type: 'result', subtype: 'success', is_error: false, structured_output: structured });
+
+	switch (mode) {
+		case 'ok':
+			process.stdout.write(
+				result({ summary: '  README の誤字を修正した。  ', tags: ['README', ' 誤字修正 ', 'README', '', 1, 'a', 'b', 'c', 'd'] }),
+			);
+			break;
+		case 'not-json':
+			process.stdout.write('not json');
+			break;
+		case 'is-error':
+			process.stdout.write(JSON.stringify({ type: 'result', is_error: true, result: 'rate limited' }));
+			break;
+		case 'bad-shape':
+			process.stdout.write(result({ summary: '', tags: 'x' }));
+			break;
+		case 'exit-1':
+			process.stderr.write('something went wrong');
+			process.exit(1);
+			break;
+		case 'hang':
+			setTimeout(() => {}, 60_000);
+			break;
+	}
+});
