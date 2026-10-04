@@ -98,10 +98,10 @@ describe('SqliteMigrator', () => {
 	});
 });
 
-describe('0006_create_session_todos', () => {
+describe('0007_create_session_todos', () => {
 	it('既存のセッションにチェックリストを作るため、取り込み済みのログの記録を消して読み直させる', () => {
 		const before = Object.fromEntries(
-			Object.entries(migrationFiles).filter(([path]) => !/\/000[6-9]_|\/00[1-9]\d_/.test(path)),
+			Object.entries(migrationFiles).filter(([path]) => !/\/000[7-9]_|\/00[1-9]\d_/.test(path)),
 		);
 		SqliteMigrator.fromFiles(before).migrate(db);
 		db.prepare(
