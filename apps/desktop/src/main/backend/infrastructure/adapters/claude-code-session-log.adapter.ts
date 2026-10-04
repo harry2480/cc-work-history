@@ -1,11 +1,13 @@
 import { readFile, readdir, stat } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import type { SessionLogFile, SessionLogGateway } from '../../domain/gateways/session-log.gateway';
-import type { SessionLogEntry } from '../../domain/models/session-log-entry.model';
+import type { LoggedTodo, SessionLogEntry } from '../../domain/models/session-log-entry.model';
 
 const SESSION_FILE_EXTENSION = '.jsonl';
 /** Claude Code が API を呼ばずに生成したメッセージのモデル名 */
 const SYNTHETIC_MODEL = '<synthetic>';
+/** 作業リストを書き込む Claude Code のツール名 */
+const TODO_WRITE_TOOL = 'TodoWrite';
 
 /**
  * `~/.claude/projects/<プロジェクト>/<sessionId>.jsonl` を読む本番実装。
@@ -46,16 +48,19 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 		const content = await readFile(file.path, 'utf-8');
 		const entries: SessionLogEntry[] = [];
 		// assistant の応答は内容ブロックごとに複数行に分かれ、同じ message.id と usage を持つ
-		const seenAssistantMessageIds = new Set<string>();
+		const assistantEntriesById = new Map<string, SessionLogEntry>();
 
 		for (const line of content.split('\n')) {
-			const entry = this.parseLine(line, seenAssistantMessageIds);
+			const entry = this.parseLine(line, assistantEntriesById);
 			if (entry) entries.push(entry);
 		}
 		return entries;
 	}
 
-	private parseLine(line: string, seenAssistantMessageIds: Set<string>): SessionLogEntry | null {
+	private parseLine(
+		line: string,
+		assistantEntriesById: Map<string, SessionLogEntry>,
+	): SessionLogEntry | null {
 		if (!line.trim()) return null;
 
 		let record: unknown;
@@ -79,10 +84,14 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 			return { timestamp, role: 'user', inputTokens: 0, outputTokens: 0, cwd };
 		}
 
+		// サブエージェントの作業リストはセッション本体の作業状況ではない
+		const todos = record.isSidechain === true ? undefined : extractTodos(message.content);
 		const messageId = typeof message.id === 'string' ? message.id : null;
-		if (messageId) {
-			if (seenAssistantMessageIds.has(messageId)) return null;
-			seenAssistantMessageIds.add(messageId);
+		const seen = messageId ? assistantEntriesById.get(messageId) : undefined;
+		if (seen) {
+			// 重複行は数えないが、ツール呼び出しは別の行に記録されるため作業リストは拾う
+			if (todos) seen.todos = todos;
+			return null;
 		}
 
 		const usage = isObject(message.usage) ? message.usage : {};
@@ -91,7 +100,7 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 				? message.model
 				: undefined;
 
-		return {
+		const entry: SessionLogEntry = {
 			timestamp,
 			role: 'assistant',
 			model,
@@ -103,6 +112,9 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 			outputTokens: toCount(usage.output_tokens),
 			cwd,
 		};
+		if (todos) entry.todos = todos;
+		if (messageId) assistantEntriesById.set(messageId, entry);
+		return entry;
 	}
 
 	private async readDirOrEmpty(dir: string) {
@@ -117,6 +129,26 @@ export class ClaudeCodeSessionLogAdapter implements SessionLogGateway {
 
 function isObject(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/**
+ * assistant メッセージの内容ブロックから、最後の TodoWrite ツール呼び出しの作業リストを取り出す。
+ * 呼び出しがなければ undefined。文字列でない項目は捨てる（内容の検証はドメインで行う）
+ */
+function extractTodos(content: unknown): LoggedTodo[] | undefined {
+	if (!Array.isArray(content)) return undefined;
+	let todos: LoggedTodo[] | undefined;
+	for (const block of content) {
+		if (!isObject(block) || block.type !== 'tool_use' || block.name !== TODO_WRITE_TOOL) continue;
+		const input = isObject(block.input) ? block.input : {};
+		if (!Array.isArray(input.todos)) continue;
+		todos = input.todos.flatMap((todo: unknown) =>
+			isObject(todo) && typeof todo.content === 'string' && typeof todo.status === 'string'
+				? [{ content: todo.content, status: todo.status }]
+				: [],
+		);
+	}
+	return todos;
 }
 
 function toCount(value: unknown): number {

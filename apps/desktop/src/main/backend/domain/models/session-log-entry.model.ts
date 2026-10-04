@@ -11,4 +11,15 @@ export type SessionLogEntry = {
 	outputTokens: number;
 	/** メッセージ送信時の作業ディレクトリ */
 	cwd?: string;
+	/**
+	 * このメッセージで Claude Code の TodoWrite ツールが書き込んだ作業リスト（呼び出し時点の全項目、未検証）。
+	 * TodoWrite を呼んでいなければ undefined、空のリストを書き込んだなら空配列
+	 */
+	todos?: readonly LoggedTodo[];
+};
+
+/** ログに記録された TodoWrite の 1 項目。検証は TodoList が行う */
+export type LoggedTodo = {
+	content: string;
+	status: string;
 };

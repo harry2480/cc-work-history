@@ -31,7 +31,7 @@ export type SessionWithProject = {
 };
 
 export interface SessionRepository {
-	/** セッションとその活動区間を 1 トランザクションで追加または更新する。プロジェクトは保存済みであること */
+	/** セッションとその活動区間・作業状況チェックリストを 1 トランザクションで追加または更新する。プロジェクトは保存済みであること */
 	save(session: Session): void;
 	findById(id: string): SessionWithProject | null;
 	/**

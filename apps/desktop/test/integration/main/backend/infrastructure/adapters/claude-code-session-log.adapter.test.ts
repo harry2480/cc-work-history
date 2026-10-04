@@ -1,3 +1,5 @@
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Session } from '../../../../../../src/main/backend/domain/models/session.model';
@@ -73,6 +75,90 @@ describe('ClaudeCodeSessionLogAdapter', () => {
 		expect(result.value.messageCount).toBe(5);
 		expect(result.value.models).toEqual(['claude-opus-5-5', 'claude-sonnet-5-5']);
 		expect(result.value.activities).toHaveLength(2);
+		expect(result.value.todos.items.map((t) => [t.content, t.status])).toEqual([
+			['（テスト用の作業 1）', 'completed'],
+			['（テスト用の作業 2）', 'in_progress'],
+			['（テスト用の作業 3）', 'pending'],
+		]);
+	});
+
+	it('TodoWrite の作業リストを、重複行に記録されたものも含めてメッセージごとに取り出す', async () => {
+		const { entries } = await readFixtureSession();
+
+		expect(entries.map((e) => e.todos?.map((t) => t.status))).toEqual([
+			undefined,
+			['in_progress', 'pending'],
+			undefined,
+			undefined,
+			// 文字列の content / status を持たない項目は捨てる（状態の検証はドメインで行う）
+			['completed', 'in_progress', 'unknown', 'pending', 'pending'],
+		]);
+	});
+
+	describe('TodoWrite の取り出し', () => {
+		const assistant = (id: string, content: unknown[], extra: Record<string, unknown> = {}) =>
+			JSON.stringify({
+				type: 'assistant',
+				timestamp: '2026-10-01T09:00:00.000Z',
+				...extra,
+				message: { id, role: 'assistant', content },
+			});
+		const todoWrite = (todos: unknown) => ({
+			type: 'tool_use',
+			name: 'TodoWrite',
+			input: { todos },
+		});
+
+		async function readLines(lines: string[]) {
+			const dir = mkdtempSync(join(tmpdir(), 'cc-work-history-test-'));
+			try {
+				mkdirSync(join(dir, 'p'));
+				writeFileSync(join(dir, 'p', 's.jsonl'), `${lines.join('\n')}\n`);
+				const tmpAdapter = new ClaudeCodeSessionLogAdapter(dir);
+				const [file] = await tmpAdapter.listSessionFiles('p');
+				if (!file) throw new Error('file not found');
+				return await tmpAdapter.readEntries(file);
+			} finally {
+				rmSync(dir, { recursive: true, force: true });
+			}
+		}
+
+		it('1 つのメッセージに複数の呼び出しがあれば最後のものを使う', async () => {
+			const entries = await readLines([
+				assistant('m1', [
+					todoWrite([{ content: 'a', status: 'pending' }]),
+					{
+						type: 'tool_use',
+						name: 'Read',
+						input: { todos: [{ content: 'x', status: 'pending' }] },
+					},
+					todoWrite([{ content: 'b', status: 'completed' }]),
+				]),
+			]);
+
+			expect(entries[0]?.todos).toEqual([{ content: 'b', status: 'completed' }]);
+		});
+
+		it('空のリストを書き込んだら空配列、todos が配列でなければ呼び出しを無視する', async () => {
+			const entries = await readLines([
+				assistant('m1', [todoWrite([])]),
+				assistant('m2', [todoWrite('not-an-array')]),
+				assistant('m3', [{ type: 'tool_use', name: 'TodoWrite' }]),
+			]);
+
+			expect(entries.map((e) => e.todos)).toEqual([[], undefined, undefined]);
+		});
+
+		it('サブエージェント（isSidechain）の作業リストは取り出さない', async () => {
+			const entries = await readLines([
+				assistant('m1', [todoWrite([{ content: 'a', status: 'pending' }])], {
+					isSidechain: true,
+				}),
+			]);
+
+			expect(entries).toHaveLength(1);
+			expect(entries[0]?.todos).toBeUndefined();
+		});
 	});
 
 	it('ルートディレクトリが存在しない場合は空を返す', async () => {

@@ -1,5 +1,6 @@
 import type { TagSource } from '../../domain/models/session-annotation.model';
 import { DEFAULT_IDLE_THRESHOLD_MS, type SessionStatus } from '../../domain/models/session.model';
+import type { TodoStatus } from '../../domain/models/todo-list.model';
 import type { SessionAnnotationRepository } from '../../domain/repositories/session-annotation.repository';
 import type { SessionRepository } from '../../domain/repositories/session.repository';
 import type { TimelineActivity } from './get-timeline.usecase';
@@ -23,6 +24,8 @@ export type SessionDetail = {
 	summaryEditedManually: boolean;
 	tags: { name: string; source: TagSource }[];
 	activities: TimelineActivity[];
+	/** 作業状況チェックリスト（ログ中の TodoWrite の最後の状態。読み取り専用） */
+	todos: { content: string; status: TodoStatus }[];
 };
 
 /** セッションの詳細を取得する。見つからなければ null */
@@ -60,6 +63,7 @@ export class GetSessionDetailUseCase {
 				endedAt: a.endedAt,
 				messageCount: a.messageCount,
 			})),
+			todos: session.todos.items.map(({ content, status }) => ({ content, status })),
 		};
 	}
 }

@@ -28,6 +28,7 @@ function detail(overrides: Partial<SessionDetailDto> = {}): SessionDetailDto {
 			{ startedAt: at(9), endedAt: at(10), messageCount: 30 },
 			{ startedAt: at(10, 55), endedAt: at(11, 30), messageCount: 12 },
 		],
+		todos: [],
 		...overrides,
 	};
 }
@@ -71,6 +72,17 @@ describe('SessionDetailPanel', () => {
 
 		expect(screen.getByText(/タイムラインでセッションを選ぶと/)).toBeTruthy();
 		expect(getSessionDetail).not.toHaveBeenCalled();
+	});
+
+	it('作業状況チェックリストを表示する', async () => {
+		getSessionDetail.mockResolvedValue(
+			detail({ todos: [{ content: '（作業 1）', status: 'in_progress' }] }),
+		);
+		useTimelineStore.setState({ selectedSessionId: 's1' });
+		render(<SessionDetailPanel />);
+
+		const list = await screen.findByRole('list', { name: '作業状況チェックリスト' });
+		expect(list.textContent).toBe('進行中: （作業 1）');
 	});
 
 	it('選択したセッションの基本情報・状態・使用量・活動区間を表示する', async () => {

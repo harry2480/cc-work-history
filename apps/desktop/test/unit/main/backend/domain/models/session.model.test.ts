@@ -116,6 +116,54 @@ describe('Session.fromLogEntries', () => {
 	});
 });
 
+describe('Session.fromLogEntries の作業状況チェックリスト', () => {
+	const todos = (session: Session) => session.todos.items.map((t) => [t.content, t.status]);
+
+	it('時刻順で最後に書き込まれた TodoWrite の内容を使う', () => {
+		const session = build([
+			entry(20, { role: 'assistant', todos: [{ content: 'b', status: 'completed' }] }),
+			entry(0),
+			entry(10, {
+				role: 'assistant',
+				todos: [
+					{ content: 'a', status: 'in_progress' },
+					{ content: 'b', status: 'pending' },
+				],
+			}),
+			entry(30),
+		]);
+
+		expect(todos(session)).toEqual([['b', 'completed']]);
+	});
+
+	it('最後に空のリストが書き込まれたら空にする', () => {
+		const session = build([
+			entry(0, { role: 'assistant', todos: [{ content: 'a', status: 'pending' }] }),
+			entry(10, { role: 'assistant', todos: [] }),
+		]);
+
+		expect(todos(session)).toEqual([]);
+	});
+
+	it('TodoWrite の記録がなければ空にする', () => {
+		expect(todos(build([entry(0), entry(10, { role: 'assistant' })]))).toEqual([]);
+	});
+
+	it('不正な項目は捨てる', () => {
+		const session = build([
+			entry(0, {
+				role: 'assistant',
+				todos: [
+					{ content: 'a', status: 'bogus' },
+					{ content: 'b', status: 'pending' },
+				],
+			}),
+		]);
+
+		expect(todos(session)).toEqual([['b', 'pending']]);
+	});
+});
+
 describe('Session.status', () => {
 	const session = build([entry(0), entry(10)]);
 	const endedAt = base + 10 * MIN;
@@ -153,6 +201,12 @@ describe('Session.create', () => {
 
 	it('保存済みの値から復元できる', () => {
 		expect(Session.create(props).success).toBe(true);
+	});
+
+	it('作業状況チェックリストを省略したら空にする', () => {
+		const result = Session.create(props);
+
+		expect(result.success && result.value.todos.items).toEqual([]);
 	});
 
 	it('終了が開始より前ならエラーにする', () => {

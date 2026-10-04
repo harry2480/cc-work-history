@@ -1,6 +1,7 @@
 import type Database from 'better-sqlite3';
 import { Activity } from '../../domain/models/activity.model';
 import { Session } from '../../domain/models/session.model';
+import { TodoList } from '../../domain/models/todo-list.model';
 import type {
 	Period,
 	SessionFilter,
@@ -29,6 +30,13 @@ type ActivityRow = {
 	started_at: number;
 	ended_at: number;
 	message_count: number;
+};
+
+type SessionTodoRow = {
+	session_id: string;
+	seq: number;
+	content: string;
+	status: string;
 };
 
 type SessionWithProjectRow = SessionRow & {
@@ -92,6 +100,15 @@ export class SqliteSessionRepository implements SessionRepository {
 					activity.messageCount,
 				);
 			});
+
+			// 作業状況チェックリストもログから作り直した内容で丸ごと置き換える
+			this.db.prepare<[string]>('DELETE FROM session_todos WHERE session_id = ?').run(session.id);
+			const insertTodo = this.db.prepare<[string, number, string, string]>(
+				'INSERT INTO session_todos (session_id, seq, content, status) VALUES (?, ?, ?, ?)',
+			);
+			session.todos.items.forEach((todo, seq) => {
+				insertTodo.run(session.id, seq, todo.content, todo.status);
+			});
 		})();
 	}
 
@@ -100,7 +117,11 @@ export class SqliteSessionRepository implements SessionRepository {
 			.prepare<[string], SessionWithProjectRow>(`${SELECT_SESSION_WITH_PROJECT} WHERE s.id = ?`)
 			.get(id);
 		if (!row) return null;
-		return this.toSessionWithProject(row, this.findActivityRows([row.id]));
+		return this.toSessionWithProject(
+			row,
+			this.findActivityRows([row.id]),
+			this.findTodoRows([row.id]),
+		);
 	}
 
 	findByPeriod(period: Period, filter: SessionFilter = {}): SessionWithProject[] {
@@ -124,8 +145,10 @@ export class SqliteSessionRepository implements SessionRepository {
 			)
 			.all(params);
 
-		const activityRows = this.findActivityRows(rows.map((row) => row.id));
-		return rows.map((row) => this.toSessionWithProject(row, activityRows));
+		const ids = rows.map((row) => row.id);
+		const activityRows = this.findActivityRows(ids);
+		const todoRows = this.findTodoRows(ids);
+		return rows.map((row) => this.toSessionWithProject(row, activityRows, todoRows));
 	}
 
 	search({ filter = {}, sort, offset, limit }: SessionSearch): {
@@ -151,8 +174,13 @@ export class SqliteSessionRepository implements SessionRepository {
 			)
 			.all(params);
 
-		const activityRows = this.findActivityRows(rows.map((row) => row.id));
-		return { items: rows.map((row) => this.toSessionWithProject(row, activityRows)), total };
+		const ids = rows.map((row) => row.id);
+		const activityRows = this.findActivityRows(ids);
+		const todoRows = this.findTodoRows(ids);
+		return {
+			items: rows.map((row) => this.toSessionWithProject(row, activityRows, todoRows)),
+			total,
+		};
 	}
 
 	/** 絞り込み条件の SQL（params に値を追加する） */
@@ -182,27 +210,35 @@ export class SqliteSessionRepository implements SessionRepository {
 	}
 
 	private findActivityRows(sessionIds: readonly string[]): Map<string, ActivityRow[]> {
-		const bySession = new Map<string, ActivityRow[]>();
-		if (sessionIds.length === 0) return bySession;
+		if (sessionIds.length === 0) return new Map();
+		return groupBySession(
+			this.db
+				.prepare<[string], ActivityRow>(
+					`SELECT * FROM activities
+					WHERE session_id IN (SELECT value FROM json_each(?))
+					ORDER BY session_id, seq`,
+				)
+				.all(JSON.stringify(sessionIds)),
+		);
+	}
 
-		const rows = this.db
-			.prepare<[string], ActivityRow>(
-				`SELECT * FROM activities
-				WHERE session_id IN (SELECT value FROM json_each(?))
-				ORDER BY session_id, seq`,
-			)
-			.all(JSON.stringify(sessionIds));
-		for (const row of rows) {
-			const list = bySession.get(row.session_id) ?? [];
-			list.push(row);
-			bySession.set(row.session_id, list);
-		}
-		return bySession;
+	private findTodoRows(sessionIds: readonly string[]): Map<string, SessionTodoRow[]> {
+		if (sessionIds.length === 0) return new Map();
+		return groupBySession(
+			this.db
+				.prepare<[string], SessionTodoRow>(
+					`SELECT * FROM session_todos
+					WHERE session_id IN (SELECT value FROM json_each(?))
+					ORDER BY session_id, seq`,
+				)
+				.all(JSON.stringify(sessionIds)),
+		);
 	}
 
 	private toSessionWithProject(
 		row: SessionWithProjectRow,
 		activityRows: Map<string, ActivityRow[]>,
+		todoRows: Map<string, SessionTodoRow[]>,
 	): SessionWithProject {
 		const project: ProjectRow = {
 			id: row.project_id,
@@ -210,12 +246,16 @@ export class SqliteSessionRepository implements SessionRepository {
 			last_activity_at: row.project_last_activity_at,
 		};
 		return {
-			session: this.toSession(row, activityRows.get(row.id) ?? []),
+			session: this.toSession(row, activityRows.get(row.id) ?? [], todoRows.get(row.id) ?? []),
 			project: SqliteProjectRepository.toModel(project),
 		};
 	}
 
-	private toSession(row: SessionRow, activityRows: readonly ActivityRow[]): Session {
+	private toSession(
+		row: SessionRow,
+		activityRows: readonly ActivityRow[],
+		todoRows: readonly SessionTodoRow[],
+	): Session {
 		const activities = activityRows.map((a) => {
 			const result = Activity.create({
 				sessionId: a.session_id,
@@ -229,6 +269,11 @@ export class SqliteSessionRepository implements SessionRepository {
 			return result.value;
 		});
 
+		const todos = TodoList.create(todoRows);
+		if (!todos.success) {
+			throw new Error(`session_todos の行が不正です（${row.id}）: ${todos.error}`);
+		}
+
 		const result = Session.create({
 			id: row.id,
 			projectId: row.project_id,
@@ -240,10 +285,21 @@ export class SqliteSessionRepository implements SessionRepository {
 			messageCount: row.message_count,
 			models: parseModels(row.models),
 			activities,
+			todos: todos.value,
 		});
 		if (!result.success) throw new Error(`sessions の行が不正です（${row.id}）: ${result.error}`);
 		return result.value;
 	}
+}
+
+function groupBySession<T extends { session_id: string }>(rows: readonly T[]): Map<string, T[]> {
+	const bySession = new Map<string, T[]>();
+	for (const row of rows) {
+		const list = bySession.get(row.session_id) ?? [];
+		list.push(row);
+		bySession.set(row.session_id, list);
+	}
+	return bySession;
 }
 
 function parseModels(json: string): string[] {
