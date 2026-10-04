@@ -10,7 +10,7 @@
 		"typecheck": "pnpm --filter webapp typecheck",
 		"verify": "pnpm lint && pnpm --filter webapp prisma generate && pnpm typecheck && pnpm test:unit && pnpm depcruise",
 		"test:unit": "pnpm --filter webapp test:unit",
-		"test:coverage": "pnpm --filter webapp test:coverage",
+		"test:coverage": "pnpm -r --if-present test:coverage",
 		"test:integration": "pnpm --filter webapp test:integration",
 		"depcruise": "pnpm --filter webapp depcruise",
 		"knip": "knip",

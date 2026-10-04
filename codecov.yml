@@ -1,4 +1,4 @@
-# Codecov 設定（テンプレート）
+# Codecov 設定
 # 詳細: https://docs.codecov.com/docs/codecov-yaml
 codecov:
   branch: main
@@ -20,6 +20,9 @@ coverage:
 ignore:
   - "**/*.test.ts"
   - "**/*.d.ts"
+  - "apps/desktop/test/**"
+  - "apps/desktop/*.config.*"
+  - "apps/desktop/src/renderer/components/ui/**"
   - "apps/webapp/test/**"
   - "apps/webapp/prisma/**"
   - "apps/webapp/*.config.*"
@@ -28,6 +31,15 @@ ignore:
   - "apps/webapp/src/app/**/loading.tsx"
   - "apps/webapp/src/app/**/not-found.tsx"
   - "apps/webapp/src/app/**/error.tsx"
+
+# アプリごとのフラグ（coverage.yml のアップロードと対応）
+flags:
+  desktop:
+    paths:
+      - apps/desktop/
+  webapp:
+    paths:
+      - apps/webapp/
 
 # PR にカバレッジコメントを投稿
 comment:
