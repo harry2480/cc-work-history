@@ -3,6 +3,7 @@ import type Database from 'better-sqlite3';
 import { BrowserWindow, app, dialog, ipcMain } from 'electron';
 import { IPC_CHANNELS, type PingResult } from '../shared/ipc-contract';
 import { openAppDatabase } from './backend/presentation/composition/database.composition';
+import { createImportSessionLogsUseCase } from './backend/presentation/composition/import-session-logs.composition';
 
 // 開発時は本番と別の userData を使い、本番のデータを壊さない
 if (!app.isPackaged) {
@@ -16,6 +17,25 @@ function registerIpcHandlers(): void {
 		IPC_CHANNELS.ping,
 		(): PingResult => ({ message: 'pong', electronVersion: process.versions.electron }),
 	);
+}
+
+/** ウィンドウの表示をブロックしないよう、起動後に非同期で取り込む */
+async function importSessionLogs(db: Database.Database): Promise<void> {
+	try {
+		const result = await createImportSessionLogsUseCase(db).execute();
+		console.info('[import] セッションログを取り込みました', {
+			scanned: result.scanned,
+			imported: result.imported,
+			unchanged: result.unchanged,
+			empty: result.empty,
+			failures: result.failures.length,
+		});
+		for (const failure of result.failures) {
+			console.warn('[import] 取り込めなかったファイル', failure);
+		}
+	} catch (error) {
+		console.error('[import] セッションログの取り込みに失敗しました', error);
+	}
 }
 
 function createWindow(): void {
@@ -52,6 +72,7 @@ app.whenReady().then(() => {
 	}
 	registerIpcHandlers();
 	createWindow();
+	void importSessionLogs(database);
 
 	app.on('activate', () => {
 		if (BrowserWindow.getAllWindows().length === 0) createWindow();
