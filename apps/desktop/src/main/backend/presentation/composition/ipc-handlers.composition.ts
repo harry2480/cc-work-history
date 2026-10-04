@@ -34,6 +34,8 @@ import { createSummaryGenerator } from './summary-generator.composition';
 import { createTerminalLauncher } from './terminal-launcher.composition';
 
 type Options = {
+	/** IPC の呼び出し元の URL がアプリ自身の画面か。違えば処理しない */
+	isTrustedSender: (url: string) => boolean;
 	paths: DataPaths;
 	/** すべてのプロジェクトを現在の設定で取り込む（ファイル監視と同じ順番待ちで実行する） */
 	importAll: () => Promise<ImportResult>;
@@ -41,10 +43,11 @@ type Options = {
 
 /** renderer から呼ばれる IPC ハンドラ（loader / action）を登録する */
 export function registerIpcHandlers(
-	ipcMain: IpcMain,
+	ipcMainToWrap: IpcMain,
 	db: Database.Database,
-	{ paths, importAll }: Options,
+	{ isTrustedSender, paths, importAll }: Options,
 ): void {
+	const ipcMain = withSenderCheck(ipcMainToWrap, isTrustedSender);
 	const sessionRepository = new SqliteSessionRepository(db);
 	const annotationRepository = new SqliteSessionAnnotationRepository(db);
 	const appSettingsRepository = new SqliteAppSettingsRepository(db);
@@ -124,4 +127,21 @@ export function registerIpcHandlers(
 	ipcMain.handle(IPC_CHANNELS.generateSessionSummary, (_event, request: unknown) =>
 		generateSessionSummary(generateSummary, request),
 	);
+}
+
+/** アプリ自身の画面以外（外部のページや iframe）からの呼び出しを断る ipcMain.handle */
+function withSenderCheck(
+	ipcMain: IpcMain,
+	isTrustedSender: (url: string) => boolean,
+): Pick<IpcMain, 'handle'> {
+	return {
+		handle: (channel, listener) =>
+			ipcMain.handle(channel, (event, ...args) => {
+				const url = event.senderFrame?.url ?? '';
+				if (!isTrustedSender(url)) {
+					throw new Error(`許可されていない呼び出し元です: ${channel}`);
+				}
+				return listener(event, ...args);
+			}),
+	};
 }

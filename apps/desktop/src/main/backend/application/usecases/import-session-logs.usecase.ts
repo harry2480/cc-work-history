@@ -36,6 +36,8 @@ export type ImportResult = {
 type ExecuteOptions = {
 	/** 指定したプロジェクトだけを対象にする（ファイル監視からの差分取り込み用） */
 	projectIds?: readonly string[];
+	/** true を返したら、残りのファイルを読まずに終える（終了処理のため） */
+	shouldStop?: () => boolean;
 };
 
 type Options = {
@@ -67,7 +69,10 @@ export class ImportSessionLogsUseCase {
 		this.idleThresholdMs = options.idleThresholdMs ?? (() => DEFAULT_IDLE_THRESHOLD_MS);
 	}
 
-	async execute({ projectIds }: ExecuteOptions = {}): Promise<ImportResult> {
+	async execute({
+		projectIds,
+		shouldStop = () => false,
+	}: ExecuteOptions = {}): Promise<ImportResult> {
 		const result: ImportResult = {
 			scanned: 0,
 			imported: 0,
@@ -82,7 +87,17 @@ export class ImportSessionLogsUseCase {
 		let processedInBatch = 0;
 
 		for (const projectId of targetProjectIds) {
-			for (const file of await this.sessionLogGateway.listSessionFiles(projectId)) {
+			if (shouldStop()) break;
+			let files: SessionLogFile[];
+			try {
+				files = await this.sessionLogGateway.listSessionFiles(projectId);
+			} catch (error) {
+				// 読めないプロジェクトがあっても、他のプロジェクトの取り込みは続ける
+				result.failures.push({ path: projectId, reason: String(error) });
+				continue;
+			}
+			for (const file of files) {
+				if (shouldStop()) break;
 				result.scanned++;
 				if (this.isUnchanged(file, importedFiles.get(file.path), idleThresholdMs)) {
 					result.unchanged++;

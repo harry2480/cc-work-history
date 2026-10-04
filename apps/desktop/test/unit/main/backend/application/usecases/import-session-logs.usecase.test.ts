@@ -275,4 +275,54 @@ describe('ImportSessionLogsUseCase（対象の絞り込みと結果）', () => {
 		expect(repos.sessions.sessions.get('s1')?.activities).toHaveLength(3);
 		expect((await useCase.execute()).unchanged).toBe(1);
 	});
+
+	it('読めないプロジェクトは記録して、他のプロジェクトの取り込みを続ける', async () => {
+		const stub = new StubSessionLogAdapter([
+			{ projectId: 'broken', sessionId: 's1', entries: [msg(0)] },
+			{ projectId: 'ok', sessionId: 's2', entries: [msg(0)] },
+		]);
+		const gateway: SessionLogGateway = {
+			listProjectIds: () => stub.listProjectIds(),
+			listSessionFiles: async (id) => {
+				if (id === 'broken') throw new Error('EACCES');
+				return stub.listSessionFiles(id);
+			},
+			readEntries: (file) => stub.readEntries(file),
+			readConversation: (file) => stub.readConversation(file),
+		};
+		const { repos, run } = setup([], gateway);
+
+		const result = await run();
+
+		expect(result.failures).toEqual([{ path: 'broken', reason: 'Error: EACCES' }]);
+		expect([...repos.sessions.sessions.keys()]).toEqual(['s2']);
+	});
+
+	it('shouldStop が true を返したら、残りのファイルを読まずに終える', async () => {
+		const repos = {
+			projects: new InMemoryProjectRepository(),
+			sessions: new InMemorySessionRepository(),
+			files: new InMemorySessionLogFileRepository(),
+		};
+		const useCase = new ImportSessionLogsUseCase(
+			new StubSessionLogAdapter([
+				{ projectId: 'p1', sessionId: 's1', entries: [msg(0)] },
+				{ projectId: 'p1', sessionId: 's2', entries: [msg(0)] },
+				{ projectId: 'p2', sessionId: 's3', entries: [msg(0)] },
+			]),
+			repos.projects,
+			repos.sessions,
+			repos.files,
+			{
+				yieldControl: async () => {},
+			},
+		);
+		// 1 件取り込んだところで終了処理が始まった状態にする
+		const shouldStop = () => repos.sessions.sessions.size >= 1;
+
+		const result = await useCase.execute({ shouldStop });
+
+		expect(result.imported).toBe(1);
+		expect(repos.files.files.size).toBe(1);
+	});
 });

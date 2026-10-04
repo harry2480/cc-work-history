@@ -26,6 +26,10 @@ export function createWatchSessionLogsUseCase(
 		createLogWatcherGateway(env),
 		createImportSessionLogsUseCase(db, env),
 		onSessionsChanged,
-		{ onError: (error) => console.error('[watch] 差分取り込みに失敗しました', error) },
+		{
+			// 応答中のセッションは追記が続くので、まとめて読む間隔を空けて main の負荷を抑える
+			debounceMs: 3000,
+			onError: (error) => console.error('[watch] 監視・差分取り込みに失敗しました', error),
+		},
 	);
 }

@@ -6,6 +6,7 @@ export type LogFileChange = {
 
 /** セッションログのディレクトリを監視する。ログは読み取り専用で、書き換えない */
 export interface LogWatcherGateway {
-	start(onChange: (change: LogFileChange) => void): void;
+	/** onError: 監視中のエラー（権限・ファイル数の上限など）。監視は続ける */
+	start(onChange: (change: LogFileChange) => void, onError?: (error: unknown) => void): void;
 	stop(): Promise<void>;
 }

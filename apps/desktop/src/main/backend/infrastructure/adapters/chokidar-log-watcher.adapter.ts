@@ -10,7 +10,7 @@ export class ChokidarLogWatcherAdapter implements LogWatcherGateway {
 
 	constructor(private readonly rootDir: string) {}
 
-	start(onChange: (change: LogFileChange) => void): void {
+	start(onChange: (change: LogFileChange) => void, onError?: (error: unknown) => void): void {
 		if (this.watcher) return;
 
 		this.watcher = watch(this.rootDir, {
@@ -25,7 +25,11 @@ export class ChokidarLogWatcherAdapter implements LogWatcherGateway {
 			const change = this.toChange(path);
 			if (change) onChange(change);
 		};
-		this.watcher.on('add', handle).on('change', handle);
+		// error のリスナーがないと、監視のエラーが main プロセスの未捕捉例外になる
+		this.watcher
+			.on('add', handle)
+			.on('change', handle)
+			.on('error', (error) => onError?.(error));
 	}
 
 	async stop(): Promise<void> {

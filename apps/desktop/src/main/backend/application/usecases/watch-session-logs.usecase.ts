@@ -10,7 +10,10 @@ export type SessionsChangedEvent = {
 };
 
 type ImportSessionLogs = {
-	execute(options: { projectIds?: readonly string[] }): Promise<ImportResult>;
+	execute(options: {
+		projectIds?: readonly string[];
+		shouldStop?: () => boolean;
+	}): Promise<ImportResult>;
 };
 
 type Options = {
@@ -41,12 +44,18 @@ export class WatchSessionLogsUseCase {
 		this.onError = options.onError ?? (() => {});
 	}
 
+	/** 終了処理が始まったら、取り込みを途中で打ち切る（記録はファイルごとなので、次回そこから続く） */
+	private readonly isStopped = () => this.stopped;
+
 	start(): void {
 		this.stopped = false;
-		this.watcher.start((change) => {
-			this.pendingProjectIds.add(change.projectId);
-			this.schedule();
-		});
+		this.watcher.start(
+			(change) => {
+				this.pendingProjectIds.add(change.projectId);
+				this.schedule();
+			},
+			(error) => this.onError(error),
+		);
 	}
 
 	async stop(): Promise<void> {
@@ -83,7 +92,7 @@ export class WatchSessionLogsUseCase {
 	async importAll(): Promise<ImportResult> {
 		while (this.running) await this.running;
 		if (this.stopped) throw new Error('終了処理中のため取り込めません');
-		const task = this.importSessionLogs.execute({}).then((result) => {
+		const task = this.importSessionLogs.execute({ shouldStop: this.isStopped }).then((result) => {
 			this.publish(result);
 			return result;
 		});
@@ -119,7 +128,7 @@ export class WatchSessionLogsUseCase {
 		if (projectIds.length === 0 || this.stopped) return;
 
 		this.running = this.importSessionLogs
-			.execute({ projectIds })
+			.execute({ projectIds, shouldStop: this.isStopped })
 			.then((result) => this.publish(result))
 			.catch(this.onError)
 			.finally(() => {
