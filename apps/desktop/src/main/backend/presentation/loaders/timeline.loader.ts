@@ -32,6 +32,8 @@ export function loadTimeline(
 			status: item.status,
 			totalTokens: item.totalTokens,
 			messageCount: item.messageCount,
+			summary: item.summary,
+			tags: item.tags,
 			activities: item.activities.map(toActivityDto),
 		})),
 	};

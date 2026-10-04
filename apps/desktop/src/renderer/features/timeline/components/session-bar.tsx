@@ -69,6 +69,12 @@ export function SessionBar({
 				<p className="mt-1">
 					{formatTime(activity.startedAt)}〜{formatTime(activity.endedAt)}
 				</p>
+				{session.summary && <p className="mt-1 line-clamp-3">{session.summary}</p>}
+				{session.tags.length > 0 && (
+					<p className="mt-1 text-muted-foreground">
+						{session.tags.map((tag) => `#${tag}`).join(' ')}
+					</p>
+				)}
 				<p className="text-muted-foreground">
 					{formatTokens(session.totalTokens)} トークン ・ {session.messageCount} メッセージ
 				</p>

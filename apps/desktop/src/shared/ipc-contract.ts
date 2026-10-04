@@ -9,6 +9,8 @@ export const IPC_CHANNELS = {
 	getTimeline: 'timeline:get',
 	/** renderer → main: セッションの詳細を取得する */
 	getSessionDetail: 'sessions:get-detail',
+	/** renderer → main: セッションの概要とタグを手動で編集する */
+	updateSessionAnnotation: 'sessions:update-annotation',
 	/** main → renderer: 取り込みでセッションが追加・更新された */
 	sessionsChanged: 'sessions:changed',
 } as const;
@@ -50,6 +52,8 @@ export type TimelineSessionDto = {
 	status: SessionStatusDto;
 	totalTokens: number;
 	messageCount: number;
+	summary: string | null;
+	tags: string[];
 	/** 期間に重なる活動区間だけ */
 	activities: ActivityDto[];
 };
@@ -78,7 +82,24 @@ export type SessionDetailDto = {
 	totalTokens: number;
 	messageCount: number;
 	models: string[];
+	summary: string | null;
+	/** 概要をユーザーが手動で編集したか（自動生成で上書きしない） */
+	summaryEditedManually: boolean;
+	tags: SessionTagDto[];
 	activities: ActivityDto[];
+};
+
+export type SessionTagDto = {
+	name: string;
+	/** manual: ユーザーが付けた / auto: 自動生成 */
+	source: 'manual' | 'auto';
+};
+
+/** 概要（空なら null）とタグ名の一覧で置き換える */
+export type UpdateSessionAnnotationRequest = {
+	id: string;
+	summary: string | null;
+	tags: string[];
 };
 
 /** セッションの追加・更新の通知 */
@@ -95,6 +116,7 @@ export type DesktopApi = {
 	getTimeline(request: GetTimelineRequest): Promise<TimelineDto>;
 	/** 見つからなければ null */
 	getSessionDetail(request: GetSessionDetailRequest): Promise<SessionDetailDto | null>;
+	updateSessionAnnotation(request: UpdateSessionAnnotationRequest): Promise<void>;
 	/** セッションの変更を購読する。戻り値の関数で購読を解除する */
 	onSessionsChanged(listener: (payload: SessionsChangedPayload) => void): () => void;
 };

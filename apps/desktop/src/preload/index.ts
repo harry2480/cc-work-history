@@ -6,6 +6,8 @@ const api: DesktopApi = {
 	ping: () => ipcRenderer.invoke(IPC_CHANNELS.ping),
 	getTimeline: (request) => ipcRenderer.invoke(IPC_CHANNELS.getTimeline, request),
 	getSessionDetail: (request) => ipcRenderer.invoke(IPC_CHANNELS.getSessionDetail, request),
+	updateSessionAnnotation: (request) =>
+		ipcRenderer.invoke(IPC_CHANNELS.updateSessionAnnotation, request),
 	onSessionsChanged: (listener) => {
 		const handler = (_event: IpcRendererEvent, payload: SessionsChangedPayload) =>
 			listener(payload);

@@ -4,6 +4,7 @@ import { useTimelineStore } from '@/stores/timeline-store';
 import type { SessionDetailDto } from '@shared/ipc-contract';
 import type { ReactNode } from 'react';
 import { useSessionDetail } from '../api/use-session-detail';
+import { AnnotationSection } from './annotation-section';
 
 export function SessionDetailPanel() {
 	const sessionId = useTimelineStore((s) => s.selectedSessionId);
@@ -52,6 +53,8 @@ function SessionDetail({ detail }: { detail: SessionDetailDto }) {
 				</div>
 				<p className="mt-1 break-all text-xs text-muted-foreground">{detail.project.path}</p>
 			</header>
+
+			<AnnotationSection key={detail.id} detail={detail} />
 
 			<Section title="基本情報">
 				<Field label="開始">{formatDateTime(startedAt)}</Field>

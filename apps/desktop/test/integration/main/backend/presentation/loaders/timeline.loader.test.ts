@@ -12,6 +12,7 @@ import { migrationFiles } from '../../../../../../src/main/backend/infrastructur
 import { openSqliteDatabase } from '../../../../../../src/main/backend/infrastructure/db/sqlite-connection';
 import { SqliteMigrator } from '../../../../../../src/main/backend/infrastructure/db/sqlite-migrator';
 import { SqliteProjectRepository } from '../../../../../../src/main/backend/infrastructure/repositories/sqlite-project.repository';
+import { SqliteSessionAnnotationRepository } from '../../../../../../src/main/backend/infrastructure/repositories/sqlite-session-annotation.repository';
 import { SqliteSessionRepository } from '../../../../../../src/main/backend/infrastructure/repositories/sqlite-session.repository';
 import {
 	InvalidIpcRequestError,
@@ -55,8 +56,9 @@ beforeEach(() => {
 	if (!project.success) throw new Error(project.error);
 	new SqliteProjectRepository(db).save(project.value);
 	const sessions = new SqliteSessionRepository(db);
-	getTimeline = new GetTimelineUseCase(sessions);
-	getSessionDetail = new GetSessionDetailUseCase(sessions);
+	const annotations = new SqliteSessionAnnotationRepository(db);
+	getTimeline = new GetTimelineUseCase(sessions, annotations);
+	getSessionDetail = new GetSessionDetailUseCase(sessions, annotations);
 });
 
 afterEach(() => {
@@ -84,6 +86,8 @@ describe('loadTimeline', () => {
 					status: 'active',
 					totalTokens: 440,
 					messageCount: 4,
+					summary: null,
+					tags: [],
 					// 期間に重なる区間だけ
 					activities: [{ startedAt: iso(0), endedAt: iso(10), messageCount: 2 }],
 				},

@@ -1,4 +1,5 @@
 import { DEFAULT_IDLE_THRESHOLD_MS, type SessionStatus } from '../../domain/models/session.model';
+import type { SessionAnnotationRepository } from '../../domain/repositories/session-annotation.repository';
 import type { Period, SessionRepository } from '../../domain/repositories/session.repository';
 
 export type TimelineActivity = {
@@ -15,6 +16,8 @@ export type TimelineItem = {
 	status: SessionStatus;
 	totalTokens: number;
 	messageCount: number;
+	summary: string | null;
+	tags: string[];
 	/** 期間に重なる活動区間だけ */
 	activities: TimelineActivity[];
 };
@@ -23,11 +26,16 @@ export type TimelineItem = {
 export class GetTimelineUseCase {
 	constructor(
 		private readonly sessionRepository: SessionRepository,
+		private readonly sessionAnnotationRepository: SessionAnnotationRepository,
 		private readonly idleThresholdMs = DEFAULT_IDLE_THRESHOLD_MS,
 	) {}
 
 	execute(period: Period, now: Date): TimelineItem[] {
-		return this.sessionRepository.findByPeriod(period).map(({ session, project }) => ({
+		const found = this.sessionRepository.findByPeriod(period);
+		const annotations = this.sessionAnnotationRepository.findBySessionIds(
+			found.map(({ session }) => session.id),
+		);
+		return found.map(({ session, project }) => ({
 			id: session.id,
 			project: { id: project.id, name: project.name, path: project.path },
 			startedAt: session.startedAt,
@@ -35,6 +43,8 @@ export class GetTimelineUseCase {
 			status: session.status(now, this.idleThresholdMs),
 			totalTokens: session.totalTokens,
 			messageCount: session.messageCount,
+			summary: annotations.get(session.id)?.summary ?? null,
+			tags: annotations.get(session.id)?.tagNames ?? [],
 			activities: session.activities
 				.filter((a) => a.startedAt < period.to && a.endedAt >= period.from)
 				.map((a) => ({ startedAt: a.startedAt, endedAt: a.endedAt, messageCount: a.messageCount })),
