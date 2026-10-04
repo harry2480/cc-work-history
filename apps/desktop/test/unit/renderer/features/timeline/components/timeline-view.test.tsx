@@ -68,6 +68,17 @@ describe('TimelineView', () => {
 		expect(screen.getByRole('tooltip').textContent).toContain('1.2万 トークン ・ 8 メッセージ');
 	});
 
+	it('バーをクリックするとセッションを選択する', async () => {
+		useTimelineStore.setState({ selectedSessionId: null });
+		render(<TimelineView />);
+		const bar = await screen.findByRole('button', { name: /^app 09:00〜10:00$/ });
+
+		fireEvent.click(bar);
+
+		expect(useTimelineStore.getState().selectedSessionId).toBe('s1');
+		expect(bar.getAttribute('aria-pressed')).toBe('true');
+	});
+
 	it('進行中のセッションは読み上げ用のラベルでも示す', async () => {
 		getTimeline.mockResolvedValue(timeline([session({ status: 'active' })]));
 		render(<TimelineView />);

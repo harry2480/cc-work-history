@@ -5,9 +5,14 @@ type TimelineState = {
 	/** 表示中の週の月曜 0:00（ローカル時刻） */
 	weekStart: Date;
 	setWeekStart: (weekStart: Date) => void;
+	/** 詳細パネルに表示するセッション */
+	selectedSessionId: string | null;
+	selectSession: (sessionId: string | null) => void;
 };
 
 export const useTimelineStore = create<TimelineState>((set) => ({
 	weekStart: startOfWeek(new Date()),
 	setWeekStart: (weekStart) => set({ weekStart }),
+	selectedSessionId: null,
+	selectSession: (selectedSessionId) => set({ selectedSessionId }),
 }));

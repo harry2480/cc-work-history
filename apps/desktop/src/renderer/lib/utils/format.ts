@@ -26,3 +26,33 @@ export function formatWeekRange(weekStart: Date, weekEnd: Date): string {
 	const last = new Date(weekEnd.getTime() - 1);
 	return `${weekStart.getFullYear()}/${weekStart.getMonth() + 1}/${weekStart.getDate()} 〜 ${last.getMonth() + 1}/${last.getDate()}`;
 }
+
+const dateTimeFormat = new Intl.DateTimeFormat('ja-JP', {
+	year: 'numeric',
+	month: 'numeric',
+	day: 'numeric',
+	weekday: 'short',
+	hour: '2-digit',
+	minute: '2-digit',
+});
+const integerFormat = new Intl.NumberFormat('ja-JP');
+
+/** 例: 2026/10/1(木) 09:00 */
+export function formatDateTime(date: Date): string {
+	return dateTimeFormat.format(date);
+}
+
+/** 例: 12,345 */
+export function formatInteger(value: number): string {
+	return integerFormat.format(value);
+}
+
+/** 例: 1時間 23分 / 5分 / 1分未満 */
+export function formatDuration(ms: number): string {
+	const totalMinutes = Math.floor(ms / 60_000);
+	if (totalMinutes < 1) return '1分未満';
+	const hours = Math.floor(totalMinutes / 60);
+	const minutes = totalMinutes % 60;
+	if (hours === 0) return `${minutes}分`;
+	return minutes === 0 ? `${hours}時間` : `${hours}時間 ${minutes}分`;
+}

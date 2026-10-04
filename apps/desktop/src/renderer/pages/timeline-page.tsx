@@ -1,3 +1,4 @@
+import { SessionDetailPanel } from '@/features/session-detail/components/session-detail-panel';
 import { TimelineView } from '@/features/timeline/components/timeline-view';
 
 /** メイン画面。左: タイムライン、右: セッション詳細の 2 ペインで、それぞれ独立してスクロールする */
@@ -11,10 +12,7 @@ export function TimelinePage() {
 				aria-label="セッション詳細"
 				className="w-96 shrink-0 overflow-auto border-l bg-card p-6"
 			>
-				<h2 className="text-lg font-bold">セッション詳細</h2>
-				<p className="mt-2 text-sm text-muted-foreground">
-					タイムラインでセッションを選ぶと、ここに詳細を表示します。
-				</p>
+				<SessionDetailPanel />
 			</aside>
 		</div>
 	);
