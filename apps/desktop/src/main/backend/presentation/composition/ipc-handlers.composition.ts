@@ -5,6 +5,7 @@ import { GetAppSettingsUseCase } from '../../application/usecases/get-app-settin
 import { GetDashboardUseCase } from '../../application/usecases/get-dashboard.usecase';
 import { GetFilterOptionsUseCase } from '../../application/usecases/get-filter-options.usecase';
 import { GetSessionDetailUseCase } from '../../application/usecases/get-session-detail.usecase';
+import { GetSessionResultUseCase } from '../../application/usecases/get-session-result.usecase';
 import { GetTimelineUseCase } from '../../application/usecases/get-timeline.usecase';
 import type { ImportResult } from '../../application/usecases/import-session-logs.usecase';
 import { ListSessionsUseCase } from '../../application/usecases/list-sessions.usecase';
@@ -15,14 +16,17 @@ import { SqliteActivityStatsRepository } from '../../infrastructure/repositories
 import { SqliteAppSettingsRepository } from '../../infrastructure/repositories/sqlite-app-settings.repository';
 import { SqliteProjectRepository } from '../../infrastructure/repositories/sqlite-project.repository';
 import { SqliteSessionAnnotationRepository } from '../../infrastructure/repositories/sqlite-session-annotation.repository';
+import { SqliteSessionResultRepository } from '../../infrastructure/repositories/sqlite-session-result.repository';
 import { SqliteSessionRepository } from '../../infrastructure/repositories/sqlite-session.repository';
 import { updateSessionAnnotation } from '../actions/session-annotation.action';
 import { resumeSession } from '../actions/session-resume.action';
 import { updateIdleThreshold } from '../actions/settings.action';
 import { loadDashboard } from '../loaders/dashboard.loader';
 import { loadSessionList } from '../loaders/session-list.loader';
+import { loadSessionResult } from '../loaders/session-result.loader';
 import { type DataPaths, loadSettings } from '../loaders/settings.loader';
 import { loadFilterOptions, loadSessionDetail, loadTimeline } from '../loaders/timeline.loader';
+import { createGitGateway } from './git.composition';
 import { createTerminalLauncher } from './terminal-launcher.composition';
 
 type Options = {
@@ -97,5 +101,14 @@ export function registerIpcHandlers(
 	);
 	ipcMain.handle(IPC_CHANNELS.resumeSession, (_event, request: unknown) =>
 		resumeSession(resumeSessionUseCase, request),
+	);
+	const getSessionResult = new GetSessionResultUseCase(
+		sessionRepository,
+		new SqliteSessionResultRepository(db),
+		createGitGateway(),
+		idleThresholdMs,
+	);
+	ipcMain.handle(IPC_CHANNELS.getSessionResult, (_event, request: unknown) =>
+		loadSessionResult(getSessionResult, request, new Date()),
 	);
 }

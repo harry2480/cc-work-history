@@ -7,6 +7,7 @@ import { useSessionDetail } from '../api/use-session-detail';
 import { AnnotationSection } from './annotation-section';
 import { CopyMarkdownButton } from './copy-markdown-button';
 import { ResumeSessionButton } from './resume-session-button';
+import { SessionResultSection } from './session-result-section';
 
 export function SessionDetailPanel() {
 	const sessionId = useTimelineStore((s) => s.selectedSessionId);
@@ -82,6 +83,8 @@ function SessionDetail({ detail }: { detail: SessionDetailDto }) {
 				<Field label="出力トークン">{formatInteger(detail.outputTokens)}</Field>
 				<Field label="合計トークン">{formatInteger(detail.totalTokens)}</Field>
 			</Section>
+
+			<SessionResultSection key={detail.id} sessionId={detail.id} />
 
 			<Section title={`活動区間（${detail.activities.length}）`}>
 				<ul className="flex flex-col gap-1 text-sm">

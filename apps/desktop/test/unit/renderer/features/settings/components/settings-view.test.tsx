@@ -58,6 +58,7 @@ beforeEach(() => {
 		getSettings,
 		updateIdleThreshold,
 		resumeSession: vi.fn(),
+		getSessionResult: vi.fn(async () => null),
 		onSessionsChanged: () => () => {},
 	};
 });

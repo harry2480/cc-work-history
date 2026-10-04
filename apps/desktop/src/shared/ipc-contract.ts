@@ -23,6 +23,8 @@ export const IPC_CHANNELS = {
 	updateIdleThreshold: 'settings:update-idle-threshold',
 	/** renderer → main: ターミナルを開いてセッションを再開する（claude -r） */
 	resumeSession: 'sessions:resume',
+	/** renderer → main: セッションの成果（期間中のコミット数・変更ファイル数）を取得する */
+	getSessionResult: 'sessions:get-result',
 	/** main → renderer: 取り込みでセッションが追加・更新された */
 	sessionsChanged: 'sessions:changed',
 } as const;
@@ -227,6 +229,16 @@ export type ResumeSessionResultDto =
 	/** この OS では未対応 */
 	| { status: 'unsupported'; reason: string }
 	| { status: 'failed'; reason: string };
+export type GetSessionResultRequest = {
+	id: string;
+};
+
+export type SessionResultDto =
+	| { status: 'commits'; commitCount: number; changedFileCount: number; computedAt: IsoDateString }
+	/** 作業ディレクトリが git リポジトリでない */
+	| { status: 'no_repository' }
+	/** git が使えないなどで集計できなかった */
+	| { status: 'unavailable'; reason: string };
 
 /** preload が `window.api` として renderer に公開する API */
 export type DesktopApi = {
@@ -242,6 +254,7 @@ export type DesktopApi = {
 	/** 活動区間の再計算が終わるまで待つ */
 	updateIdleThreshold(request: UpdateIdleThresholdRequest): Promise<UpdateIdleThresholdResultDto>;
 	resumeSession(request: ResumeSessionRequest): Promise<ResumeSessionResultDto>;
+	getSessionResult(request: GetSessionResultRequest): Promise<SessionResultDto | null>;
 	/** セッションの変更を購読する。戻り値の関数で購読を解除する */
 	onSessionsChanged(listener: (payload: SessionsChangedPayload) => void): () => void;
 };
