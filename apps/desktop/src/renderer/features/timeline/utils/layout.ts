@@ -1,4 +1,4 @@
-import { DAY_MS } from './week';
+import { DAY_MS } from '@/lib/utils/week';
 
 export type BarSegment = {
 	/** 何日目か（0 = 月曜） */

@@ -1,10 +1,9 @@
-import { PagePlaceholder } from '@/components/elements/page-placeholder';
+import { DashboardView } from '@/features/dashboard/components/dashboard-view';
 
 export function DashboardPage() {
 	return (
-		<PagePlaceholder
-			title="ダッシュボード"
-			description="統計カード、日別グラフ、プロジェクト別サマリーをここに表示します。"
-		/>
+		<div className="min-h-0 flex-1 overflow-auto p-6">
+			<DashboardView />
+		</div>
 	);
 }

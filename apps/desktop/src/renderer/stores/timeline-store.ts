@@ -1,4 +1,4 @@
-import { startOfWeek } from '@/features/timeline/utils/week';
+import { startOfWeek } from '@/lib/utils/week';
 import { create } from 'zustand';
 
 type TimelineState = {
