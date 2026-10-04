@@ -17,6 +17,10 @@ export const IPC_CHANNELS = {
 	getDashboard: 'dashboard:get',
 	/** renderer → main: セッション一覧（絞り込み・並び替え・ページ分け）を取得する */
 	listSessions: 'sessions:list',
+	/** renderer → main: 設定（データの場所・活動区間の閾値）を取得する */
+	getSettings: 'settings:get',
+	/** renderer → main: 活動区間を分ける無操作時間の閾値を変更し、活動区間を計算し直す */
+	updateIdleThreshold: 'settings:update-idle-threshold',
 	/** main → renderer: 取り込みでセッションが追加・更新された */
 	sessionsChanged: 'sessions:changed',
 } as const;
@@ -191,6 +195,27 @@ export type SessionsChangedPayload = {
 	to: string;
 };
 
+export type SettingsDto = {
+	/** Claude Code のセッションログを読むディレクトリ（変更不可・表示のみ） */
+	logDirectory: string;
+	/** アプリの DB ファイル */
+	databasePath: string;
+	/** 活動区間を分ける無操作時間の閾値（分） */
+	idleThresholdMinutes: number;
+	defaultIdleThresholdMinutes: number;
+	minIdleThresholdMinutes: number;
+	maxIdleThresholdMinutes: number;
+};
+
+export type UpdateIdleThresholdRequest = {
+	minutes: number;
+};
+
+export type UpdateIdleThresholdResultDto = {
+	/** 取り込めず、古い活動区間のまま残ったファイルの数（次回の起動時に計算し直す） */
+	failedFiles: number;
+};
+
 /** preload が `window.api` として renderer に公開する API */
 export type DesktopApi = {
 	ping(): Promise<PingResult>;
@@ -201,6 +226,9 @@ export type DesktopApi = {
 	getFilterOptions(): Promise<FilterOptionsDto>;
 	getDashboard(request: GetDashboardRequest): Promise<DashboardDto>;
 	listSessions(request: ListSessionsRequest): Promise<SessionListDto>;
+	getSettings(): Promise<SettingsDto>;
+	/** 活動区間の再計算が終わるまで待つ */
+	updateIdleThreshold(request: UpdateIdleThresholdRequest): Promise<UpdateIdleThresholdResultDto>;
 	/** セッションの変更を購読する。戻り値の関数で購読を解除する */
 	onSessionsChanged(listener: (payload: SessionsChangedPayload) => void): () => void;
 };

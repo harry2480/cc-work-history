@@ -62,11 +62,40 @@ export class WatchSessionLogsUseCase {
 	publish(result: ImportResult): void {
 		const sessions = result.importedSessions;
 		if (sessions.length === 0) return;
+		// 全件の取り込みでは件数が多いため、スプレッドで Math.min / max に渡さない
+		let from = Number.POSITIVE_INFINITY;
+		let to = Number.NEGATIVE_INFINITY;
+		for (const session of sessions) {
+			from = Math.min(from, session.startedAt.getTime());
+			to = Math.max(to, session.endedAt.getTime());
+		}
 		this.onSessionsChanged({
 			sessionIds: sessions.map((s) => s.id),
-			from: new Date(Math.min(...sessions.map((s) => s.startedAt.getTime()))),
-			to: new Date(Math.max(...sessions.map((s) => s.endedAt.getTime()))),
+			from: new Date(from),
+			to: new Date(to),
 		});
+	}
+
+	/**
+	 * すべてのプロジェクトを取り込み、通知する（起動時と、活動区間の閾値を変えたとき）。
+	 * 差分取り込みの途中なら、終わってから始める。失敗したら呼び出し元に投げる
+	 */
+	async importAll(): Promise<ImportResult> {
+		while (this.running) await this.running;
+		if (this.stopped) throw new Error('終了処理中のため取り込めません');
+		const task = this.importSessionLogs.execute({}).then((result) => {
+			this.publish(result);
+			return result;
+		});
+		this.running = task.then(
+			() => {
+				this.running = null;
+			},
+			() => {
+				this.running = null;
+			},
+		);
+		return task;
 	}
 
 	private schedule(): void {

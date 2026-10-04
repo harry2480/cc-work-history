@@ -119,4 +119,121 @@ describe('WatchSessionLogsUseCase', () => {
 		expect(watcher.isWatching).toBe(false);
 		expect(importSessionLogs.execute).not.toHaveBeenCalled();
 	});
+
+	describe('importAll', () => {
+		it('すべてのプロジェクトを取り込んで通知し、結果を返す', async () => {
+			const { importSessionLogs, events, useCase } = setup({
+				imported: 1,
+				importedSessions: [{ id: 's1', startedAt: t(0), endedAt: t(10) }],
+			});
+
+			const result = await useCase.importAll();
+
+			expect(result.imported).toBe(1);
+			expect(importSessionLogs.execute).toHaveBeenCalledWith({});
+			expect(events).toEqual([{ sessionIds: ['s1'], from: t(0), to: t(10) }]);
+		});
+
+		it('差分取り込みの途中なら、終わってから始める', async () => {
+			const { watcher, importSessionLogs, useCase } = setup();
+			let finishDiff: (result: ImportResult) => void = () => {};
+			importSessionLogs.execute.mockImplementationOnce(
+				() =>
+					new Promise<ImportResult>((resolve) => {
+						finishDiff = resolve;
+					}),
+			);
+			watcher.emit({ projectId: 'p1', path: '/l/p1/a.jsonl' });
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(importSessionLogs.execute).toHaveBeenCalledTimes(1);
+
+			const all = useCase.importAll();
+			await vi.advanceTimersByTimeAsync(0);
+			expect(importSessionLogs.execute).toHaveBeenCalledTimes(1);
+
+			finishDiff(emptyResult);
+			await all;
+			expect(importSessionLogs.execute).toHaveBeenLastCalledWith({});
+		});
+
+		it('取り込み中に届いた変更は、取り込みが終わってから差分取り込みする', async () => {
+			const { watcher, importSessionLogs, useCase } = setup();
+			let finishAll: (result: ImportResult) => void = () => {};
+			importSessionLogs.execute.mockImplementationOnce(
+				() =>
+					new Promise<ImportResult>((resolve) => {
+						finishAll = resolve;
+					}),
+			);
+			const all = useCase.importAll();
+			watcher.emit({ projectId: 'p1', path: '/l/p1/a.jsonl' });
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(importSessionLogs.execute).toHaveBeenCalledTimes(1);
+
+			finishAll(emptyResult);
+			await all;
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(importSessionLogs.execute).toHaveBeenLastCalledWith({ projectIds: ['p1'] });
+		});
+
+		it('続けて呼ぶと順番に実行する', async () => {
+			const { importSessionLogs, useCase } = setup();
+			let running = 0;
+			let maxRunning = 0;
+			importSessionLogs.execute.mockImplementation(async () => {
+				running++;
+				maxRunning = Math.max(maxRunning, running);
+				await Promise.resolve();
+				running--;
+				return emptyResult;
+			});
+
+			await Promise.all([useCase.importAll(), useCase.importAll(), useCase.importAll()]);
+
+			expect(importSessionLogs.execute).toHaveBeenCalledTimes(3);
+			expect(maxRunning).toBe(1);
+		});
+
+		it('失敗したら呼び出し元に投げ、その後の差分取り込みは続けられる', async () => {
+			const { watcher, importSessionLogs, useCase } = setup();
+			importSessionLogs.execute.mockRejectedValueOnce(new Error('boom'));
+
+			await expect(useCase.importAll()).rejects.toThrow('boom');
+
+			watcher.emit({ projectId: 'p1', path: '/l/p1/a.jsonl' });
+			await vi.advanceTimersByTimeAsync(1000);
+			expect(importSessionLogs.execute).toHaveBeenLastCalledWith({ projectIds: ['p1'] });
+		});
+
+		it('停止後は取り込まずにエラーにする', async () => {
+			const { importSessionLogs, useCase } = setup();
+			await useCase.stop();
+
+			await expect(useCase.importAll()).rejects.toThrow('終了処理中');
+			expect(importSessionLogs.execute).not.toHaveBeenCalled();
+		});
+
+		it('停止は実行中の取り込みの完了を待つ', async () => {
+			const { importSessionLogs, useCase } = setup();
+			let finishAll: (result: ImportResult) => void = () => {};
+			importSessionLogs.execute.mockImplementationOnce(
+				() =>
+					new Promise<ImportResult>((resolve) => {
+						finishAll = resolve;
+					}),
+			);
+			const all = useCase.importAll();
+			let stopped = false;
+			const stopping = useCase.stop().then(() => {
+				stopped = true;
+			});
+			await vi.advanceTimersByTimeAsync(0);
+			expect(stopped).toBe(false);
+
+			finishAll(emptyResult);
+			await all;
+			await stopping;
+			expect(stopped).toBe(true);
+		});
+	});
 });

@@ -11,6 +11,8 @@ const api: DesktopApi = {
 	listSessions: (request) => ipcRenderer.invoke(IPC_CHANNELS.listSessions, request),
 	updateSessionAnnotation: (request) =>
 		ipcRenderer.invoke(IPC_CHANNELS.updateSessionAnnotation, request),
+	getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.getSettings),
+	updateIdleThreshold: (request) => ipcRenderer.invoke(IPC_CHANNELS.updateIdleThreshold, request),
 	onSessionsChanged: (listener) => {
 		const handler = (_event: IpcRendererEvent, payload: SessionsChangedPayload) =>
 			listener(payload);

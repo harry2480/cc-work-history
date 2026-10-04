@@ -1,4 +1,5 @@
 import { AppShell } from '@/components/layouts/app-shell';
+import { useApplyTheme } from '@/lib/hooks/use-apply-theme';
 import { DashboardPage } from '@/pages/dashboard-page';
 import type { PageKey } from '@/pages/page-key';
 import { SessionListPage } from '@/pages/session-list-page';
@@ -15,6 +16,7 @@ const pages: Record<PageKey, () => JSX.Element> = {
 
 export function App() {
 	const [current, setCurrent] = useState<PageKey>('timeline');
+	useApplyTheme();
 	const Page = pages[current];
 
 	return (

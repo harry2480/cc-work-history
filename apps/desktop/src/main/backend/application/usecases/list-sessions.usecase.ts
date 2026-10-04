@@ -32,7 +32,8 @@ export class ListSessionsUseCase {
 	constructor(
 		private readonly sessionRepository: SessionRepository,
 		private readonly sessionAnnotationRepository: SessionAnnotationRepository,
-		private readonly idleThresholdMs = DEFAULT_IDLE_THRESHOLD_MS,
+		/** 進行中かどうかの判定に使う閾値。設定の変更を反映するため、取得のたびに読む */
+		private readonly idleThresholdMs: () => number = () => DEFAULT_IDLE_THRESHOLD_MS,
 	) {}
 
 	execute(input: ListSessionsInput, now: Date): { items: SessionListItem[]; total: number } {
@@ -53,7 +54,7 @@ export class ListSessionsUseCase {
 				startedAt: session.startedAt,
 				endedAt: session.endedAt,
 				activeDurationMs: session.activeDurationMs,
-				status: session.status(now, this.idleThresholdMs),
+				status: session.status(now, this.idleThresholdMs()),
 				totalTokens: session.totalTokens,
 				messageCount: session.messageCount,
 				summary: annotations.get(session.id)?.summary ?? null,

@@ -6,9 +6,14 @@ import { SqliteMigrator } from '../../infrastructure/db/sqlite-migrator';
 
 const DATABASE_FILE_NAME = 'cc-work-history.db';
 
+/** アプリの DB ファイルのパス */
+export function resolveDatabasePath(userDataDir: string): string {
+	return join(userDataDir, DATABASE_FILE_NAME);
+}
+
 /** アプリの DB を開き、未適用のマイグレーションを適用する */
 export function openAppDatabase(userDataDir: string): Database.Database {
-	const db = openSqliteDatabase(join(userDataDir, DATABASE_FILE_NAME));
+	const db = openSqliteDatabase(resolveDatabasePath(userDataDir));
 	try {
 		SqliteMigrator.fromFiles(migrationFiles).migrate(db);
 	} catch (error) {

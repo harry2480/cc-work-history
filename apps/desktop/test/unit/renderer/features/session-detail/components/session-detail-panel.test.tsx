@@ -47,6 +47,8 @@ beforeEach(() => {
 		getFilterOptions: vi.fn(async () => ({ projects: [], tags: [] })),
 		getDashboard: vi.fn(),
 		listSessions: vi.fn(),
+		getSettings: vi.fn(),
+		updateIdleThreshold: vi.fn(),
 		onSessionsChanged: (listener) => {
 			notifyChange = listener;
 			return () => {};
