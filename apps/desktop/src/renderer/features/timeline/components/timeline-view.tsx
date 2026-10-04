@@ -4,9 +4,10 @@ import { cn } from '@/lib/utils/cn';
 import { formatDay, formatWeekRange } from '@/lib/utils/format';
 import { useDisplaySettingsStore } from '@/stores/display-settings-store';
 import { useTimelineStore } from '@/stores/timeline-store';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useMemo } from 'react';
+import { ChevronLeft, ChevronRight, ZoomIn, ZoomOut } from 'lucide-react';
+import { useMemo, useRef } from 'react';
 import { useTimeline } from '../api/use-timeline';
+import { useTimelineZoom } from '../hooks/use-timeline-zoom';
 import { colorGroupOf, legendOf } from '../utils/color-by';
 import { assignLanes, toBarSegments } from '../utils/layout';
 import {
@@ -17,11 +18,13 @@ import {
 	startOfWeek,
 	weekPeriod,
 } from '../utils/week';
+import { MAX_ZOOM, MIN_ZOOM, formatHourMark, hourMarkInterval, hourMarks } from '../utils/zoom';
 import { ColorBySwitch } from './color-by-switch';
 import { ColorLegend } from './color-legend';
 import { SessionBar } from './session-bar';
 
-const HOUR_MARKS = [0, 3, 6, 9, 12, 15, 18, 21];
+/** 左端に固定する日付の列の幅（px） */
+const LABEL_WIDTH = 88;
 /** 段 1 つ分の高さ（px）と、日の行の最小の高さ */
 const LANE_HEIGHT = 14;
 const MIN_ROW_HEIGHT = 48;
@@ -36,6 +39,10 @@ export function TimelineView() {
 	const legend = useMemo(() => legendOf(data?.sessions ?? [], colorBy), [data, colorBy]);
 	const days = useMemo(() => daysOfWeek(weekStart), [weekStart]);
 	const today = new Date();
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const zoom = useTimelineZoom({ scrollRef, labelWidth: LABEL_WIDTH });
+	const marks = hourMarks(zoom.zoom);
+	const gridInterval = `${(hourMarkInterval(zoom.zoom) / 24) * 100}%`;
 	const isThisWeek = weekStart.getTime() === startOfWeek(today).getTime();
 
 	const barsByDay = useMemo(() => {
@@ -100,7 +107,36 @@ export function TimelineView() {
 					{formatWeekRange(weekStart, weekPeriod(weekStart).to)}
 				</h2>
 				{loading && <span className="text-xs text-muted-foreground">読み込み中…</span>}
-				<div className="ml-auto">
+				<div className="ml-auto flex flex-wrap items-center gap-3">
+					<div className="flex items-center gap-1">
+						<Button
+							variant="outline"
+							size="icon"
+							aria-label="縮小"
+							disabled={zoom.zoom <= MIN_ZOOM}
+							onClick={zoom.zoomOut}
+						>
+							<ZoomOut />
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
+							aria-label="ズームを元に戻す"
+							className="w-14"
+							onClick={zoom.reset}
+						>
+							{Math.round(zoom.zoom * 100)}%
+						</Button>
+						<Button
+							variant="outline"
+							size="icon"
+							aria-label="拡大"
+							disabled={zoom.zoom >= MAX_ZOOM}
+							onClick={zoom.zoomIn}
+						>
+							<ZoomIn />
+						</Button>
+					</div>
 					<ColorBySwitch />
 				</div>
 			</header>
@@ -112,50 +148,62 @@ export function TimelineView() {
 				</p>
 			)}
 
-			<div className="grid grid-cols-[5.5rem_1fr] text-xs">
-				<div />
-				<div className="relative h-5 text-muted-foreground">
-					{HOUR_MARKS.map((hour) => (
-						<span key={hour} className="absolute" style={{ left: `${(hour / 24) * 100}%` }}>
-							{hour}:00
-						</span>
+			{/* 時間軸の幅を zoom 倍に広げ、横スクロールでパンする。バーの位置は % なので時刻とずれない */}
+			<div ref={scrollRef} data-testid="timeline-scroll" className="min-w-0 overflow-x-auto">
+				<div
+					className="grid text-xs"
+					style={{
+						gridTemplateColumns: `${LABEL_WIDTH}px 1fr`,
+						width: `calc(${LABEL_WIDTH}px + (100% - ${LABEL_WIDTH}px) * ${zoom.zoom})`,
+					}}
+				>
+					<div className="sticky left-0 z-10 bg-background" />
+					<div className="relative h-5 text-muted-foreground">
+						{marks.map((hour) => (
+							<span key={hour} className="absolute" style={{ left: `${(hour / 24) * 100}%` }}>
+								{formatHourMark(hour)}
+							</span>
+						))}
+					</div>
+					{days.map((day, dayIndex) => (
+						<div key={day.getTime()} className="contents">
+							<div
+								className={cn(
+									'sticky left-0 z-10 flex items-center border-t bg-background pr-2',
+									isSameDay(day, today) && 'font-bold text-primary',
+								)}
+							>
+								{formatDay(day)}
+							</div>
+							<div
+								className="relative border-t bg-[repeating-linear-gradient(to_right,var(--border)_0_1px,transparent_1px_var(--grid-interval))] py-1"
+								style={
+									{
+										'--grid-interval': gridInterval,
+										height: Math.max(
+											MIN_ROW_HEIGHT,
+											(barsByDay[dayIndex]?.laneCount ?? 1) * LANE_HEIGHT + 8,
+										),
+									} as React.CSSProperties
+								}
+							>
+								{barsByDay[dayIndex]?.bars.map((bar) => (
+									<SessionBar
+										key={bar.key}
+										session={bar.session}
+										segment={bar.segment}
+										activity={bar.activity}
+										lane={bar.lane}
+										laneCount={barsByDay[dayIndex]?.laneCount ?? 1}
+										color={colorGroupOf(bar.session, colorBy).color}
+										isSelected={bar.session.id === selectedSessionId}
+										onSelect={selectSession}
+									/>
+								))}
+							</div>
+						</div>
 					))}
 				</div>
-				{days.map((day, dayIndex) => (
-					<div key={day.getTime()} className="contents">
-						<div
-							className={cn(
-								'flex items-center border-t pr-2',
-								isSameDay(day, today) && 'font-bold text-primary',
-							)}
-						>
-							{formatDay(day)}
-						</div>
-						<div
-							className="relative border-t bg-[repeating-linear-gradient(to_right,var(--border)_0_1px,transparent_1px_12.5%)] py-1"
-							style={{
-								height: Math.max(
-									MIN_ROW_HEIGHT,
-									(barsByDay[dayIndex]?.laneCount ?? 1) * LANE_HEIGHT + 8,
-								),
-							}}
-						>
-							{barsByDay[dayIndex]?.bars.map((bar) => (
-								<SessionBar
-									key={bar.key}
-									session={bar.session}
-									segment={bar.segment}
-									activity={bar.activity}
-									lane={bar.lane}
-									laneCount={barsByDay[dayIndex]?.laneCount ?? 1}
-									color={colorGroupOf(bar.session, colorBy).color}
-									isSelected={bar.session.id === selectedSessionId}
-									onSelect={selectSession}
-								/>
-							))}
-						</div>
-					</div>
-				))}
 			</div>
 
 			{data && data.sessions.length === 0 && !loading && (

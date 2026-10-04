@@ -11,6 +11,9 @@ type TimelineState = {
 	/** renderer からデータを変更したら増やし、表示中のデータを取り直させる */
 	dataVersion: number;
 	notifyDataChanged: () => void;
+	/** タイムラインの横方向の拡大率 */
+	zoom: number;
+	setZoom: (zoom: number) => void;
 };
 
 export const useTimelineStore = create<TimelineState>((set) => ({
@@ -20,4 +23,6 @@ export const useTimelineStore = create<TimelineState>((set) => ({
 	selectSession: (selectedSessionId) => set({ selectedSessionId }),
 	dataVersion: 0,
 	notifyDataChanged: () => set((state) => ({ dataVersion: state.dataVersion + 1 })),
+	zoom: 1,
+	setZoom: (zoom) => set({ zoom }),
 }));

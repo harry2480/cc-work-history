@@ -40,7 +40,7 @@ let getTimeline: ReturnType<typeof vi.fn<DesktopApi['getTimeline']>>;
 let notifyChange: (payload: SessionsChangedPayload) => void;
 
 beforeEach(() => {
-	useTimelineStore.setState({ weekStart });
+	useTimelineStore.setState({ weekStart, zoom: 1 });
 	useDisplaySettingsStore.setState({ colorBy: 'project' });
 	getTimeline = vi.fn<DesktopApi['getTimeline']>(async () => timeline([session()]));
 	notifyChange = () => {};
@@ -159,6 +159,69 @@ describe('TimelineView', () => {
 			),
 		);
 		useFilterStore.getState().clear();
+	});
+
+	it('ボタンで拡大・縮小し、下限・上限ではボタンを押せない', async () => {
+		render(<TimelineView />);
+		await screen.findByRole('button', { name: /^app/ });
+		expect(screen.getByRole('button', { name: '縮小' })).toHaveProperty('disabled', true);
+
+		fireEvent.click(screen.getByRole('button', { name: '拡大' }));
+		expect(useTimelineStore.getState().zoom).toBe(1.5);
+		expect(screen.getByRole('button', { name: 'ズームを元に戻す' }).textContent).toBe('150%');
+		// 時間軸の幅が倍率に応じて広がる
+		const content = screen.getByTestId('timeline-scroll').firstElementChild as HTMLElement;
+		expect(content.style.width).toContain('1.5');
+
+		for (let i = 0; i < 10; i++) fireEvent.click(screen.getByRole('button', { name: '拡大' }));
+		expect(useTimelineStore.getState().zoom).toBe(12);
+		expect(screen.getByRole('button', { name: '拡大' })).toHaveProperty('disabled', true);
+
+		fireEvent.click(screen.getByRole('button', { name: 'ズームを元に戻す' }));
+		expect(useTimelineStore.getState().zoom).toBe(1);
+	});
+
+	it('キーボードの + / - / 0 で拡大・縮小・元に戻す。入力欄では反応しない', async () => {
+		render(<TimelineView />);
+		await screen.findByRole('button', { name: /^app/ });
+
+		fireEvent.keyDown(window, { key: '+' });
+		fireEvent.keyDown(window, { key: '+' });
+		expect(useTimelineStore.getState().zoom).toBe(2);
+		fireEvent.keyDown(window, { key: '-' });
+		expect(useTimelineStore.getState().zoom).toBe(1.5);
+		fireEvent.keyDown(screen.getByLabelText('日付を指定して移動'), { key: '0' });
+		expect(useTimelineStore.getState().zoom).toBe(1.5);
+		fireEvent.keyDown(window, { key: '0' });
+		expect(useTimelineStore.getState().zoom).toBe(1);
+	});
+
+	it('Ctrl/⌘ + ホイールで拡大・縮小し、ただのホイールでは変わらない', async () => {
+		render(<TimelineView />);
+		await screen.findByRole('button', { name: /^app/ });
+		const scroll = screen.getByTestId('timeline-scroll');
+
+		scroll.dispatchEvent(new WheelEvent('wheel', { deltaY: -10, bubbles: true, cancelable: true }));
+		expect(useTimelineStore.getState().zoom).toBe(1);
+
+		const pinch = new WheelEvent('wheel', {
+			deltaY: -10,
+			ctrlKey: true,
+			bubbles: true,
+			cancelable: true,
+		});
+		act(() => {
+			scroll.dispatchEvent(pinch);
+		});
+		expect(useTimelineStore.getState().zoom).toBe(1.5);
+		expect(pinch.defaultPrevented).toBe(true);
+
+		act(() => {
+			scroll.dispatchEvent(
+				new WheelEvent('wheel', { deltaY: 10, metaKey: true, bubbles: true, cancelable: true }),
+			);
+		});
+		expect(useTimelineStore.getState().zoom).toBe(1);
 	});
 
 	it('表示中の週に関係する更新通知を受けたら取り直す', async () => {
