@@ -7,4 +7,6 @@ export interface SessionAnnotationRepository {
 	findBySessionIds(sessionIds: readonly string[]): Map<string, SessionAnnotation>;
 	/** 概要とタグを置き換える。セッションは保存済みであること */
 	save(sessionId: string, annotation: SessionAnnotation): void;
+	/** 使われているタグ名の一覧（名前順） */
+	findAllTagNames(): string[];
 }

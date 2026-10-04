@@ -27,6 +27,13 @@ export class SqliteProjectRepository implements ProjectRepository {
 		return row ? SqliteProjectRepository.toModel(row) : null;
 	}
 
+	findAll(): Project[] {
+		return this.db
+			.prepare<[], ProjectRow>('SELECT * FROM projects ORDER BY last_activity_at DESC, id')
+			.all()
+			.map((row) => SqliteProjectRepository.toModel(row));
+	}
+
 	static toModel(row: ProjectRow): Project {
 		const result = Project.create({
 			id: row.id,

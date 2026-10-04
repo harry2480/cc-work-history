@@ -18,6 +18,9 @@ class InMemoryAnnotationRepository implements SessionAnnotationRepository {
 	save(id: string, annotation: SessionAnnotation) {
 		this.saved.set(id, annotation);
 	}
+	findAllTagNames() {
+		return [];
+	}
 }
 
 describe('UpdateSessionAnnotationUseCase', () => {
